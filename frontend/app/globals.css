@@ -96,11 +96,7 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* PERFORMANCE MODE: Disable all animations and transitions */
-* {
-  animation: none !important;
-  transition: none !important;
-}
+/* PERFORMANCE MODE: Removed global override to allow UI animations */
 
 /* Exemptions */
 .animate-infinite-scroll {

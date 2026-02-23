@@ -79,6 +79,9 @@ export const AgentChatModal = ({ isOpen, onClose, agent, initialContext }: Agent
           agent_name: agent.id,
           message: userMsg,
           context: agent.result, // specific agent result + full context if needed
+          provider: localStorage.getItem("trading_llm_provider"),
+          model: localStorage.getItem("trading_llm_model"),
+          api_key: localStorage.getItem("trading_llm_api_key"),
         }),
       });
       const data = await res.json();
@@ -138,11 +141,10 @@ export const AgentChatModal = ({ isOpen, onClose, agent, initialContext }: Agent
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed ${
-                  msg.role === "user"
+                className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed ${msg.role === "user"
                     ? "rounded-br-none bg-blue-500 text-white"
                     : "rounded-bl-none bg-white/10 text-gray-200"
-                }`}
+                  }`}
               >
                 {msg.text}
               </div>

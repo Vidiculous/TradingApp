@@ -67,7 +67,7 @@ class Quant(BaseAgent):
             Use the CURRENT DATE and LOCAL MARKET TIME above as the truth.
             """
 
-            response = await self.call_gemini(prompt_content)
+            response = await self.call_model(prompt_content, api_config=data.get("api_config"))
             return response
 
         except Exception as e:

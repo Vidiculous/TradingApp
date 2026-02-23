@@ -1,10 +1,11 @@
 import asyncio
+# Force reload to pick up ai_engine changes
 import os
 import sys
 import traceback
 
 import httpx
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models import (
@@ -18,8 +19,18 @@ from models import (
     TickerResponse,
 )
 from pydantic import BaseModel
+from services.auth import (
+    authenticate_user,
+    clear_auth_cookies,
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    set_auth_cookies,
+)
 from services.ai_service import generate_analysis
 from services.alerts import add_alert, delete_alert, get_alerts
+from services.analysis_history import get_all_history, get_history
+from services.db_service import init_db
 from services.jobs import job_manager
 from services.market_data import (
     get_economic_calendar,
@@ -42,6 +53,7 @@ from services.paper_trading import (
     update_stop_loss,
 )
 from services.sector_data import get_sector_correlation
+from services.watchlist import add_to_watchlist, get_watchlist, remove_from_watchlist
 
 # Add parent directory to path to allow importing ai_engine
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,6 +93,8 @@ async def monitor_portfolio_stops():
 
 @app.on_event("startup")
 async def startup_event():
+    # Initialize Database
+    init_db()
     # Start the monitor in the background
     asyncio.create_task(monitor_portfolio_stops())
 
@@ -101,12 +115,12 @@ async def global_exception_handler(request: Request, exc: Exception):
             content={"detail": str(exc)},
         )
 
-    error_detail = f"Internal Server Error: {str(exc)}"
-    print(f"Global Exception: {error_detail}")
+    # Log the full error server-side but don't leak internals to the client
+    print(f"Global Exception: {str(exc)}")
     traceback.print_exc()
     return JSONResponse(
         status_code=500,
-        content={"detail": error_detail, "error": str(exc)},
+        content={"detail": "An internal server error occurred."},
     )
 
 
@@ -125,20 +139,12 @@ def toggle_demo_mode():
     return {"demo_mode": orchestrator.demo_mode}
 
 
-@app.get("/api/debug/crash")
-def debug_crash():
-    raise ValueError("Intentional Crash for Debugging")
-
-
-# Configure CORS
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
+# Configure CORS — restrict to known frontend origins
+ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,17 +178,22 @@ def get_ticker(symbol: str, period: str = "1mo", interval: str = "1d"):
 
 
 @app.post("/api/ticker/{symbol}/analyze", response_model=AIAnalysis)
-def analyze_ticker(symbol: str):
+async def analyze_ticker(
+    symbol: str,
+    horizon: str = "Swing",
+    autonomous: bool = False,
+    use_portfolio: bool = True,
+):
     symbol = symbol.upper()
-    try:
-        # Fetch fresh data for the analysis
-        data = get_ticker_data(symbol)
-        news = get_ticker_news(symbol)
+    if not orchestrator:
+        raise HTTPException(status_code=503, detail="AI Engine not initialized")
 
-        return generate_analysis(
-            symbol=symbol, price_data=data["price"], fundamentals=data["fundamentals"], news=news
-        )
+    try:
+        # The Orchestrator handles its own data gathering (yf, news, web search)
+        result = await orchestrator.analyze_ticker(symbol, horizon, autonomous, use_portfolio)
+        return result
     except Exception as e:
+        print(f"Orchestration Error in API: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -406,27 +417,185 @@ def get_sector_analysis(symbol: str):
     return get_sector_correlation(symbol)
 
 
+# --- Analysis History Endpoints ---
+
+
+@app.get("/api/analysis/history/{symbol}")
+def get_analysis_history(symbol: str, limit: int = 10, offset: int = 0):
+    """Returns past AI analysis records for a specific ticker with pagination."""
+    return {"history": get_history(symbol, limit=limit, offset=offset), "offset": offset, "limit": limit}
+
+
+@app.get("/api/analysis/history")
+def get_all_analysis_history(limit: int = 20, offset: int = 0):
+    """Returns recent AI analysis records across all tickers with pagination."""
+    return {"history": get_all_history(limit=limit, offset=offset), "offset": offset, "limit": limit}
+
+
+# --- Document Management Endpoints ---
+
+
+MAX_UPLOAD_SIZE_MB = 20
+ALLOWED_UPLOAD_TYPES = {".pdf", ".txt", ".md", ".csv"}
+
+
+@app.post("/api/documents/upload")
+async def upload_financial_document(
+    ticker: str = Form(...),
+    doc_type: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Upload a financial document (PDF/Text) for AI analysis."""
+    # Validate file extension
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_UPLOAD_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(ALLOWED_UPLOAD_TYPES)}",
+        )
+
+    # Validate file size (read content to check, then reset)
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE_MB}MB.",
+        )
+    await file.seek(0)
+
+    try:
+        return await upload_document(file, ticker, doc_type)
+    except Exception as e:
+        print(f"Upload Error: {e}")
+        raise HTTPException(status_code=500, detail="File upload failed.")
+
+
+@app.get("/api/documents/{symbol}")
+def list_documents(symbol: str):
+    """List all uploaded documents for a ticker."""
+    return {"documents": get_documents(symbol)}
+
+
+@app.delete("/api/documents/{symbol}/{doc_id}")
+def remove_document(symbol: str, doc_id: str):
+    """Delete a document."""
+    if delete_document(symbol, doc_id):
+        return {"status": "success", "message": "Document deleted"}
+    raise HTTPException(status_code=404, detail="Document not found")
+
+
+# --- Watchlist Endpoints ---
+
+
+@app.get("/api/watchlist", response_model=list[str])
+def get_user_watchlist():
+    return get_watchlist()
+
+
+@app.post("/api/watchlist/{symbol}")
+def add_symbol_to_watchlist(symbol: str):
+    return add_to_watchlist(symbol)
+
+
+@app.delete("/api/watchlist/{symbol}")
+def remove_symbol_from_watchlist(symbol: str):
+    return remove_from_watchlist(symbol)
+
+
+# --- Auth Endpoints ---
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+@app.post("/api/auth/login")
+async def login(req: LoginRequest, response: Response):
+    if not authenticate_user(req.username, req.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token()
+    refresh_token = create_refresh_token()
+    set_auth_cookies(response, access_token, refresh_token)
+    return {"status": "ok", "message": "Logged in"}
+
+
+@app.post("/api/auth/refresh")
+async def refresh_token(response: Response, refresh_token: str = Cookie(default=None)):
+    from jose import JWTError, jwt
+    from services.auth import SECRET_KEY, ALGORITHM, APP_USERNAME, _is_auth_enabled
+
+    if not _is_auth_enabled():
+        return {"status": "ok", "message": "Auth disabled"}
+
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("sub") != APP_USERNAME or payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    new_access = create_access_token()
+    response.set_cookie(
+        key="access_token",
+        value=new_access,
+        httponly=True,
+        samesite="lax",
+        max_age=15 * 60,
+    )
+    return {"status": "ok", "message": "Token refreshed"}
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    clear_auth_cookies(response)
+    return {"status": "ok", "message": "Logged out"}
+
+
+@app.get("/api/auth/status")
+async def auth_status(user: str = Depends(get_current_user)):
+    return {"authenticated": True, "username": user}
+
+
 # --- Agent Endpoints ---
 
 
 class AgentAnalyzeRequest(BaseModel):
     symbol: str
     horizon: str = "Swing"
+    autonomous: bool = False
+    use_portfolio: bool = True
+    provider: str | None = None
+    model: str | None = None
+    api_key: str | None = None
 
 
 class AgentChatRequest(BaseModel):
     agent_name: str
     message: str
     context: dict | None = {}
+    provider: str | None = None
+    model: str | None = None
+    api_key: str | None = None
 
 
-async def run_analysis_task(job_id: str, symbol: str, horizon: str):
+async def run_analysis_task(
+    job_id: str,
+    symbol: str,
+    horizon: str,
+    autonomous: bool = False,
+    use_portfolio: bool = True,
+    api_config: dict | None = None,
+):
     """Background task wrapper"""
     try:
         if not orchestrator:
             raise ValueError("Orchestrator not initialized")
 
-        result = await orchestrator.analyze_ticker(symbol, horizon)
+        result = await orchestrator.analyze_ticker(symbol, horizon, autonomous, use_portfolio, api_config)
 
         # Check if result has error key
         if isinstance(result, dict) and "error" in result:
@@ -447,8 +616,25 @@ async def run_agent_analysis(req: AgentAnalyzeRequest, background_tasks: Backgro
     # Create Job
     job_id = job_manager.create_job()
 
+    # api_config construction
+    api_config = None
+    if req.api_key:
+        api_config = {
+            "provider": req.provider or "gemini",
+            "model": req.model or "gemini-3-flash-preview",
+            "api_key": req.api_key,
+        }
+
     # Start Background Task
-    background_tasks.add_task(run_analysis_task, job_id, req.symbol, req.horizon)
+    background_tasks.add_task(
+        run_analysis_task,
+        job_id,
+        req.symbol,
+        req.horizon,
+        req.autonomous,
+        req.use_portfolio,
+        api_config,
+    )
 
     return {"job_id": job_id, "status": "pending"}
 
@@ -484,8 +670,16 @@ async def chat_with_agent(req: AgentChatRequest):
         raise HTTPException(status_code=404, detail=f"Agent '{req.agent_name}' not found")
 
     try:
+        api_config = None
+        if req.api_key:
+            api_config = {
+                "provider": req.provider or "gemini",
+                "model": req.model or "gemini-3-flash-preview",
+                "api_key": req.api_key,
+            }
+
         if hasattr(agent, "chat"):
-            response = await agent.chat(req.message, req.context)
+            response = await agent.chat(req.message, req.context, api_config=api_config)
             return {"response": response}
         else:
             return {

@@ -3,6 +3,7 @@ import { Dispatch, SetStateAction, useEffect, useState } from "react";
 
 import { AnalysisPlaceholder } from "./AnalysisPlaceholder";
 import { ConfidenceMeter } from "./ConfidenceMeter";
+import { DocumentManager } from "./DocumentManager";
 import { EconomicCalendar } from "./EconomicCalendar";
 import { MarketMovers } from "./MarketMovers";
 import { NewsCard } from "./NewsCard";
@@ -14,15 +15,16 @@ import { SidebarTabs } from "./SidebarTabs";
 import { SignalCard } from "./SignalCard";
 import { TimeAndSales } from "./TimeAndSales";
 import { Watchlist } from "./Watchlist";
+import type { AIAnalysis, NewsItem, TickerData } from "@/types/api";
 
 interface DashboardRightPanelProps {
-  tickerData: any;
-  setTickerData: Dispatch<SetStateAction<any>>;
+  tickerData: TickerData;
+  setTickerData: Dispatch<SetStateAction<TickerData | null>>;
   onSelectTicker: (ticker: string) => void;
   onOrderPlaced: () => void;
   lastUpdated: Date | null;
   refreshTrigger: number;
-  aiAnalysis: any;
+  aiAnalysis: AIAnalysis | null;
   aiLoading: boolean;
   onRunAi: () => void;
 }
@@ -38,7 +40,7 @@ export const DashboardRightPanel = ({
   aiLoading,
   onRunAi,
 }: DashboardRightPanelProps) => {
-  const [news, setNews] = useState<any[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsFetched, setNewsFetched] = useState(false);
   const [newsFetchedAt, setNewsFetchedAt] = useState<Date | null>(null);
@@ -154,12 +156,15 @@ export const DashboardRightPanel = ({
                         No news available
                       </p>
                     ) : (
-                      news.map((item: any, idx: number) => <NewsCard key={idx} news={item} />)
+                      news.map((item, idx) => <NewsCard key={idx} news={item} />)
                     )}
                   </div>
                 </div>
               )}
             </div>
+          }
+          docsContent={
+            <DocumentManager symbol={tickerData.meta.symbol} />
           }
           moversContent={
             <div className="h-full space-y-4 p-2">

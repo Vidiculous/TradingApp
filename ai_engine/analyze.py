@@ -25,7 +25,7 @@ def get_stock_data(ticker):
     try:
         stock = yf.Ticker(ticker)
         # Fetch last 7 days. Interval '1d' is standard.
-        hist = stock.history(period="7d")
+        hist = stock.history(period="30d")
 
         # Format data for returning
         data = []
@@ -48,7 +48,7 @@ def generate_llm_insight(ticker, stock_data):
 
     try:
         # Prepare context for the LLM
-        data_summary = json.dumps(stock_data[-3:], indent=2)  # Just last 3 days for brevity
+        data_summary = json.dumps(stock_data[-30:], indent=2)  # Just last 3 days for brevity
 
         prompt = f"""
         You are a financial analyst. Analyze the recent stock performance for {ticker}.

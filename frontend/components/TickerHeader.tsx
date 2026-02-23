@@ -13,11 +13,15 @@ export const TickerHeader = ({ tickerData }: TickerHeaderProps) => {
   const [isStarred, setIsStarred] = useState(false);
 
   useEffect(() => {
-    const check = () => {
-      const saved = localStorage.getItem("user_watchlist");
-      if (saved) {
-        const list = JSON.parse(saved);
-        setIsStarred(list.includes(tickerData.meta.symbol));
+    const check = async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        if (res.ok) {
+          const list = await res.json();
+          setIsStarred(list.includes(tickerData.meta.symbol));
+        }
+      } catch (e) {
+        console.error("Failed to check watchlist status", e);
       }
     };
     check();
@@ -26,7 +30,7 @@ export const TickerHeader = ({ tickerData }: TickerHeaderProps) => {
   }, [tickerData.meta.symbol]);
 
   const handleStar = () => {
-    toggleWatchlist(tickerData.meta.symbol);
+    toggleWatchlist(tickerData.meta.symbol, isStarred);
   };
 
   return (

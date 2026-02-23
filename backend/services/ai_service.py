@@ -25,7 +25,7 @@ def generate_analysis(
             "model_name": "No AI Key",
         }
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
     try:
         # Day Trader Assistant Persona
@@ -107,7 +107,7 @@ def analyze_sector_correlations(symbol: str, correlations: list[dict[str, Any]])
     if not client:
         return "AI Sector Analysis unavailable."
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
     try:
         prompt = f"""

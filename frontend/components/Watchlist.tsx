@@ -15,15 +15,23 @@ export const Watchlist = () => {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const router = useRouter();
 
-  // Load list
+  // Load list from Backend
+  const loadWatchlist = async () => {
+    try {
+      const res = await fetch("/api/watchlist");
+      if (res.ok) {
+        const data = await res.json();
+        setWatchlist(data);
+      }
+    } catch (e) {
+      console.error("Failed to load watchlist", e);
+    }
+  };
+
   useEffect(() => {
-    const load = () => {
-      const saved = localStorage.getItem("user_watchlist");
-      if (saved) setWatchlist(JSON.parse(saved));
-    };
-    load();
-    window.addEventListener("watchlistUpdated", load);
-    return () => window.removeEventListener("watchlistUpdated", load);
+    loadWatchlist();
+    window.addEventListener("watchlistUpdated", loadWatchlist);
+    return () => window.removeEventListener("watchlistUpdated", loadWatchlist);
   }, []);
 
   // Fetch prices (Poll)
@@ -34,8 +42,6 @@ export const Watchlist = () => {
         return;
       }
 
-      // In a real app we'd use a batch endpoint.
-      // Here we parallel fetch.
       const promises = watchlist.map(async (sym) => {
         try {
           const res = await fetch(`/api/ticker/${sym}?interval=1d&period=1d`);
@@ -62,12 +68,16 @@ export const Watchlist = () => {
     return () => clearInterval(interval);
   }, [watchlist]);
 
-  const removeFromWatchlist = (e: React.MouseEvent, symbol: string) => {
+  const removeFromWatchlist = async (e: React.MouseEvent, symbol: string) => {
     e.stopPropagation();
-    const updated = watchlist.filter((s) => s !== symbol);
-    localStorage.setItem("user_watchlist", JSON.stringify(updated));
-    window.dispatchEvent(new Event("watchlistUpdated"));
-    setWatchlist(updated);
+    try {
+      const res = await fetch(`/api/watchlist/${symbol}`, { method: "DELETE" });
+      if (res.ok) {
+        window.dispatchEvent(new Event("watchlistUpdated"));
+      }
+    } catch (e) {
+      console.error("Failed to remove from watchlist", e);
+    }
   };
 
   return (
@@ -111,21 +121,14 @@ export const Watchlist = () => {
 };
 
 // Helper for TickerHeader
-export const toggleWatchlist = (symbol: string) => {
-  const saved = localStorage.getItem("user_watchlist");
-  let current = saved ? JSON.parse(saved) : [];
-
-  if (current.includes(symbol)) {
-    current = current.filter((s: string) => s !== symbol);
-  } else {
-    current.push(symbol);
+export const toggleWatchlist = async (symbol: string, isCurrentlyStarred: boolean) => {
+  try {
+    const method = isCurrentlyStarred ? "DELETE" : "POST";
+    const res = await fetch(`/api/watchlist/${symbol}`, { method });
+    if (res.ok) {
+      window.dispatchEvent(new Event("watchlistUpdated"));
+    }
+  } catch (e) {
+    console.error("Failed to toggle watchlist", e);
   }
-
-  localStorage.setItem("user_watchlist", JSON.stringify(current));
-  window.dispatchEvent(new Event("watchlistUpdated"));
-};
-
-export const isInWatchlist = (symbol: string) => {
-  // Only works client-side, need useEffect in component
-  return false;
 };

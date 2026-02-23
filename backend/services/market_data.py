@@ -527,7 +527,7 @@ def get_economic_calendar() -> list[dict[str, Any]]:
             }
         )
 
-    return calendar
+    return {"events": calendar, "simulated": True}
 
 
 def get_order_book(symbol: str, current_price: float) -> dict[str, Any]:
@@ -569,7 +569,7 @@ def get_order_book(symbol: str, current_price: float) -> dict[str, Any]:
 
         asks.append({"price": round(price, 2), "size": size, "total": 0})
 
-    return {"symbol": symbol, "bids": bids, "asks": asks}
+    return {"symbol": symbol, "bids": bids, "asks": asks, "simulated": True}
 
 
 def get_sales_tape(symbol: str, current_price: float) -> list[dict[str, Any]]:
@@ -612,7 +612,7 @@ def get_sales_tape(symbol: str, current_price: float) -> list[dict[str, Any]]:
     # Sort by time desc
     tape.sort(key=lambda x: x["time"], reverse=True)
 
-    return tape
+    return {"trades": tape, "simulated": True}
 
 
 def get_market_overview() -> dict[str, list[dict[str, Any]]]:

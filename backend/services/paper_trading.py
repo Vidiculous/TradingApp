@@ -1,428 +1,315 @@
-import asyncio
-import json
 import logging
-import os
 import uuid
 from datetime import datetime
-
-from services.market_data import get_exchange_rate, get_ticker_data
+from typing import List, Optional
+from sqlmodel import Session, select, delete
+from db_models.db import Account, Position, OrderHistory
+from services.db_service import engine
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-PORTFOLIO_FILE = "data/portfolio.json"
+def _get_or_create_account(session: Session) -> Account:
+    account = session.get(Account, "default")
+    if not account:
+        account = Account(id="default", cash_balance=100000.0, initial_balance=100000.0)
+        session.add(account)
+        session.commit()
+        session.refresh(account)
+    return account
 
-DEFAULT_PORTFOLIO = {
-    "cash": 100000.0,
-    "holdings": {},  # symbol -> { quantity, average_cost }
-    "history": [],
-}
+def get_portfolio() -> dict:
+    """
+    Returns the current portfolio summary including cash and positions.
+    """
+    with Session(engine) as session:
+        account = _get_or_create_account(session)
+        cash = account.cash_balance
+        
+        statement = select(Position)
+        positions = session.exec(statement).all()
+        
+        pos_list = []
+        for p in positions:
+            d = p.dict()
+            if isinstance(d.get("last_updated"), datetime):
+                d["last_updated"] = d["last_updated"].isoformat()
+            # Add frontend-friendly aliases
+            d["quantity"] = d["qty"]
+            d["average_cost"] = d["avg_price"]
+            pos_list.append(d)
+            
+        total_market_value = sum(p.qty * p.current_price for p in positions)
+        total_value = cash + total_market_value
 
+        # Fetch order history
+        history_stmt = select(OrderHistory).order_by(OrderHistory.timestamp.desc()).limit(50)
+        history_entries = session.exec(history_stmt).all()
+        history_list = []
+        for h in history_entries:
+            d = h.dict()
+            if isinstance(d.get("timestamp"), datetime):
+                d["timestamp"] = d["timestamp"].isoformat()
+            history_list.append(d)
 
-def _load_portfolio():
-    if not os.path.exists("data"):
-        os.makedirs("data")
+        # Map for frontend compatibility
+        holdings = {p["symbol"]: p for p in pos_list}
 
-    if not os.path.exists(PORTFOLIO_FILE):
-        _save_portfolio(DEFAULT_PORTFOLIO)
-        return DEFAULT_PORTFOLIO
-
-    try:
-        with open(PORTFOLIO_FILE) as f:
-            p = json.load(f)
-            # Migration: Ensure all history items have an 'id'
-            modified = False
-            for item in p.get("history", []):
-                if "id" not in item:
-                    item["id"] = str(uuid.uuid4())
-                    modified = True
-            if modified:
-                _save_portfolio(p)
-            return p
-    except Exception as e:
-        logger.error(f"Failed to load portfolio: {e}")
-        return DEFAULT_PORTFOLIO
-
-
-def _save_portfolio(portfolio):
-    try:
-        with open(PORTFOLIO_FILE, "w") as f:
-            json.dump(portfolio, f, indent=4)
-    except Exception as e:
-        logger.error(f"Failed to save portfolio: {e}")
-
-
-def get_portfolio():
-    portfolio = _load_portfolio()
-
-    # Calculate total equity (requires current prices - simplistically handled in frontend or separate aggregation)
-    # acts as a raw data fetcher
-    return portfolio
-
-
+        return {
+            "cash": cash,
+            "holdings": holdings,
+            "positions": pos_list,
+            "total_value": total_value,
+            "history": history_list,
+        }
 
 def execute_order(
     symbol: str,
     side: str,
-    qty: int,
+    qty: float,
     price: float,
-    stop_loss: float | None = None,
+    stop_loss: Optional[float] = None,
     sl_type: str = "fixed",
-    take_profit: float | None = None,
-    tp_config: dict | None = None,
-    comment: str | None = None,
+    take_profit: Optional[float] = None,
+    tp_config: dict = None,
+    reason: str = "manual",
 ):
-    portfolio = _load_portfolio()
     symbol = symbol.upper()
+    total_cost = qty * price
 
-    try:
-        ticker_data = get_ticker_data(symbol)
-        currency = ticker_data["meta"].get("currency", "USD")
-    except Exception:
-        currency = "USD"
+    with Session(engine) as session:
+        account = _get_or_create_account(session)
 
-    fx_rate = 1.0
-    if currency != "USD":
-        fx_rate = get_exchange_rate(currency, "USD")
+        statement = select(Position).where(Position.symbol == symbol)
+        position = session.exec(statement).first()
 
-    total_cost_native = qty * price
-    total_cost_usd = total_cost_native * fx_rate
+        side_upper = side.upper()
 
-    pnl_usd = None
-    side_upper = side.upper()
+        if side_upper == "BUY":
+            if account.cash_balance < total_cost:
+                raise ValueError(
+                    f"Insufficient cash balance: ${account.cash_balance:.2f} < ${total_cost:.2f}"
+                )
 
-    # Get current position
-    current_pos = portfolio["holdings"].get(symbol, {"quantity": 0, "average_cost": 0.0, "currency": currency})
-    current_qty = current_pos["quantity"]
-    current_avg = current_pos["average_cost"]
+            account.cash_balance -= total_cost
+            account.last_updated = datetime.utcnow()
 
-    if side_upper == "BUY":
-        # Check cash (only for the cost of the shares, regardless of if we are opening long or covering short)
-        if portfolio["cash"] < total_cost_usd:
-            raise ValueError(
-                f"Insufficient buying power. Cost: ${total_cost_usd:.2f}, Cash: ${portfolio['cash']:.2f}"
+            if position:
+                # Update existing position
+                avg_total = (position.qty * position.avg_price) + total_cost
+                position.qty += qty
+                position.avg_price = avg_total / position.qty
+                position.current_price = price
+                position.last_updated = datetime.utcnow()
+            else:
+                # Create new position
+                position = Position(
+                    symbol=symbol,
+                    qty=qty,
+                    avg_price=price,
+                    current_price=price,
+                    stop_loss=stop_loss,
+                    sl_type=sl_type,
+                    take_profit=take_profit,
+                    tp_config=tp_config or {},
+                    last_updated=datetime.utcnow(),
+                )
+                session.add(position)
+
+            # Record order history
+            history_entry = OrderHistory(
+                symbol=symbol,
+                side=side_upper,
+                qty=qty,
+                price=price,
+                total_value=total_cost,
+                realized_pnl=None,
+                reason=reason,
+                timestamp=datetime.utcnow(),
             )
+            session.add(history_entry)
 
-        portfolio["cash"] -= total_cost_usd
+        elif side_upper == "SELL":
+            if not position or position.qty < qty:
+                raise ValueError(f"Insufficient position in {symbol} to sell.")
 
-        # Calculate realized PnL if covering a short
-        if current_qty < 0:
-            cover_qty = min(abs(current_qty), qty)
-            # Short PnL = (sell_price - buy_price) * qty
-            # average_cost for shorts is the price at which we sold
-            pnl_native = (current_avg - price) * cover_qty
-            pnl_usd = pnl_native * fx_rate
-            logger.info(f"Covering short for {symbol}: Realized PnL: ${pnl_usd:.2f}")
+            # Capture avg_price BEFORE modifying the position for realized P&L
+            realized_pnl = (price - position.avg_price) * qty
 
-        # Update average cost and quantity
-        new_qty = current_qty + qty
+            account.cash_balance += total_cost
+            account.last_updated = datetime.utcnow()
+
+            position.qty -= qty
+            position.last_updated = datetime.utcnow()
+
+            if position.qty <= 0:
+                session.delete(position)
+
+            # Record order history
+            history_entry = OrderHistory(
+                symbol=symbol,
+                side=side_upper,
+                qty=qty,
+                price=price,
+                total_value=total_cost,
+                realized_pnl=realized_pnl,
+                reason=reason,
+                timestamp=datetime.utcnow(),
+            )
+            session.add(history_entry)
+
+        session.add(account)
+        session.commit()
+
+    return get_portfolio()
+
+def update_stop_loss(symbol: str, stop_loss: Optional[float], take_profit: Optional[float] = None, tp_config: dict = None):
+    symbol = symbol.upper()
+    with Session(engine) as session:
+        statement = select(Position).where(Position.symbol == symbol)
+        position = session.exec(statement).first()
         
-        # If we switch from short to long, or just covering part of a short, 
-        # the average cost logic changes.
-        if current_qty >= 0:
-            # Standard long averaging
-            new_avg = ((current_qty * current_avg) + (qty * price)) / new_qty if new_qty != 0 else 0
-        else:
-            # Covering short
-            if new_qty > 0:
-                # Switched to long: average cost is just the buy price for the remaining long portion
-                new_avg = price
-            elif new_qty < 0:
-                # Still short: average cost (sell price) remains the same
-                new_avg = current_avg
-            else:
-                # Fully covered
-                new_avg = 0
-
-    elif side_upper == "SELL":
-        # Selling adds cash to balance (liability is the negative share count)
-        portfolio["cash"] += total_cost_usd
-
-        # Calculate realized PnL if closing a long
-        if current_qty > 0:
-            sell_qty = min(current_qty, qty)
-            pnl_native = (price - current_avg) * sell_qty
-            pnl_usd = pnl_native * fx_rate
-            logger.info(f"Closing long for {symbol}: Realized PnL: ${pnl_usd:.2f}")
-
-        new_qty = current_qty - qty
-
-        # Update average cost
-        if current_qty <= 0:
-            # Standard short averaging (selling more to open/increase short)
-            # For shorts, avg_cost is the average price we SOLD at
-            abs_curr = abs(current_qty)
-            new_avg = ((abs_curr * current_avg) + (qty * price)) / abs(new_qty) if new_qty != 0 else 0
-        else:
-            # Closing long
-            if new_qty < 0:
-                # Switched to short: average cost is the sell price for the remaining short portion
-                new_avg = price
-            elif new_qty > 0:
-                # Still long: average cost remains the same
-                new_avg = current_avg
-            else:
-                # Fully closed
-                new_avg = 0
-
-    # Stop loss configuration (only if opening/increasing a position, otherwise keep existing)
-    sl_config = None
-    if stop_loss:
-        sl_config = {
-            "type": sl_type,
-            "value": float(stop_loss),
-            "initial_value": float(stop_loss),
-            "initial_distance": abs(price - float(stop_loss)),
-            "high_water_mark": float(price) if "trailing" in sl_type else None,
-        }
-
-    if new_qty == 0:
-        if symbol in portfolio["holdings"]:
-            del portfolio["holdings"][symbol]
-    else:
-        portfolio["holdings"][symbol] = {
-            "quantity": new_qty,
-            "average_cost": new_avg,
-            "currency": currency,
-            "stop_loss": sl_config or current_pos.get("stop_loss"),
-            "take_profit": float(take_profit) if take_profit else current_pos.get("take_profit"),
-            "tp_config": tp_config or current_pos.get("tp_config"),
-        }
-
-    # Log Transaction
-    portfolio["history"].append(
-        {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat(),
-            "symbol": symbol,
-            "side": side,
-            "qty": qty,
-            "price": price,
-            "currency": currency,
-            "fx_rate": fx_rate,
-            "total_native": total_cost_native,
-            "total_usd": total_cost_usd,
-            "realized_pnl_usd": pnl_usd,
-            "comment": comment,
-        }
-    )
-
-    _save_portfolio(portfolio)
-    return portfolio
-
+        if not position:
+            return get_portfolio()
+            
+        position.stop_loss = stop_loss
+        position.take_profit = take_profit
+        if tp_config:
+            position.tp_config = tp_config
+        position.last_updated = datetime.utcnow()
+        
+        session.add(position)
+        session.commit()
+        
+    return get_portfolio()
 
 async def sync_portfolio_stops():
     """
-    Lazy update for trailing stops. Fetches current prices and updates SL levels.
+    Syncs the portfolio with current market prices and triggers stops/take-profits.
+    Also checks price alerts.
     """
-    portfolio = _load_portfolio()
-    if not portfolio["holdings"]:
-        return portfolio
+    from services.market_data import get_ticker_data
 
-    modified = False
-    symbols = list(portfolio["holdings"].keys())
+    triggered_symbols = []
 
-    # Fetch current prices for all holdings
-    async def get_price(s):
+    with Session(engine) as session:
+        statement = select(Position)
+        positions = session.exec(statement).all()
+
+        for pos in positions:
+            try:
+                data = get_ticker_data(pos.symbol)
+                current_price = data["price"]["current"]
+
+                pos.current_price = current_price
+
+                # Check Stop Loss
+                if pos.stop_loss and current_price <= pos.stop_loss:
+                    logger.info(
+                        f"STOP LOSS TRIGGERED for {pos.symbol} at {current_price} "
+                        f"(SL={pos.stop_loss}). Selling {pos.qty} shares."
+                    )
+                    triggered_symbols.append(
+                        ("SELL", pos.symbol, pos.qty, current_price, "stop_loss")
+                    )
+
+                # Check Take Profit
+                elif pos.take_profit and current_price >= pos.take_profit:
+                    logger.info(
+                        f"TAKE PROFIT TRIGGERED for {pos.symbol} at {current_price} "
+                        f"(TP={pos.take_profit}). Selling {pos.qty} shares."
+                    )
+                    triggered_symbols.append(
+                        ("SELL", pos.symbol, pos.qty, current_price, "take_profit")
+                    )
+
+                session.add(pos)
+            except Exception as e:
+                logger.error(f"Failed to sync {pos.symbol}: {e}")
+
+        session.commit()
+
+    # Execute triggered orders outside the session to avoid nesting issues
+    for side, symbol, qty, price, reason in triggered_symbols:
         try:
-            data = await asyncio.to_thread(get_ticker_data, s)
-            return s, data["price"]["current"]
-        except Exception:
-            return s, None
+            execute_order(symbol=symbol, side=side, qty=qty, price=price, reason=reason)
+            logger.info(f"Auto-executed {side} {qty} {symbol} @ {price} (reason: {reason})")
+        except Exception as e:
+            logger.error(f"Failed to auto-execute {reason} for {symbol}: {e}")
 
-    price_results = await asyncio.gather(*[get_price(s) for s in symbols])
-    prices = {s: p for s, p in price_results if p is not None}
+    # Check price alerts
+    await _check_price_alerts()
 
-    to_remove = []
-    partial_sells = []
+    return get_portfolio()
 
-    for symbol, pos in portfolio["holdings"].items():
-        current_price = prices.get(symbol)
-        if current_price is None:
+
+async def _check_price_alerts():
+    """Check all active alerts against current prices and trigger matching ones."""
+    from services.market_data import get_ticker_data
+    from services.alerts import get_alerts, delete_alert
+
+    alerts = get_alerts()
+    for alert in alerts:
+        if not alert.get("is_active", True):
             continue
+        try:
+            data = get_ticker_data(alert["symbol"])
+            current_price = data["price"]["current"]
 
-        is_short = pos["quantity"] < 0
-        sl = pos.get("stop_loss")
-        
-        if sl and isinstance(sl, dict):
-            sl_type = sl.get("type", "fixed")
-            
-            # 1. Update Trailing Stops
-            if "trailing" in sl_type:
-                hwm = sl.get("high_water_mark", pos["average_cost"])
-                dist = sl.get("initial_distance", 1.0) # Fallback
-                
-                if not is_short:
-                    # Long: SL moves UP if current_price > HWM
-                    if current_price > hwm:
-                        sl["high_water_mark"] = current_price
-                        if sl_type == "trailing_fixed":
-                            sl["value"] = current_price - dist
-                        elif sl_type == "trailing_pct":
-                            pct = sl.get("pct", dist / hwm)
-                            sl["value"] = current_price * (1 - pct)
-                        modified = True
-                else:
-                    # Short: SL moves DOWN if current_price < LWM (represented by hwm field)
-                    if current_price < hwm:
-                        sl["high_water_mark"] = current_price
-                        if sl_type == "trailing_fixed":
-                            sl["value"] = current_price + dist
-                        elif sl_type == "trailing_pct":
-                            pct = sl.get("pct", dist / hwm)
-                            sl["value"] = current_price * (1 + pct)
-                        modified = True
-
-            # 2. Check for Trigger
             triggered = False
-            if not is_short:
-                if current_price <= sl["value"]:
-                    triggered = True
-            else:
-                if current_price >= sl["value"]:
-                    triggered = True
-            
+            if alert["condition"] == "ABOVE" and current_price >= alert["target_price"]:
+                triggered = True
+            elif alert["condition"] == "BELOW" and current_price <= alert["target_price"]:
+                triggered = True
+
             if triggered:
-                logger.info(f"STOP LOSS TRIGGERED for {symbol} ({'SHORT' if is_short else 'LONG'}) at {current_price}")
-                to_remove.append((symbol, "STOP LOSS"))
-
-        # 3. Check for Take Profit
-        tp = pos.get("take_profit")
-        tp_config = pos.get("tp_config")
-
-        # Simple Take Profit
-        if tp:
-            tp_hit = (not is_short and current_price >= tp) or (is_short and current_price <= tp)
-            if tp_hit:
-                logger.info(f"SIMPLE TAKE PROFIT TRIGGERED for {symbol} at {current_price}")
-                to_remove.append((symbol, "TAKE PROFIT"))
-
-        # Advanced TP Config
-        if tp_config and isinstance(tp_config, dict):
-            tp_type = tp_config.get("type", "fixed")
-
-            if tp_type == "scaled":
-                for t in tp_config.get("targets", []):
-                    if not t.get("triggered"):
-                        hit = (not is_short and current_price >= t["price"]) or (is_short and current_price <= t["price"])
-                        if hit:
-                            logger.info(f"SCALED TP HIT for {symbol} at {t['price']}")
-                            # Partial cover/sell
-                            qty_to_exec = int(abs(pos["quantity"]) * t.get("qty_pct", 1.0))
-                            if qty_to_exec > 0:
-                                side = "BUY" if is_short else "SELL"
-                                partial_sells.append((symbol, side, qty_to_exec, current_price))
-                                t["triggered"] = True
-                                modified = True
-
-            elif tp_type == "breakeven":
-                target = tp_config.get("target")
-                if not tp_config.get("triggered") and target:
-                    hit = (not is_short and current_price >= target) or (is_short and current_price <= target)
-                    if hit:
-                        logger.info(f"BREAKEVEN TP HIT for {symbol}")
-                        if sl:
-                            sl["value"] = pos["average_cost"]
-                            sl["type"] = "fixed"
-                            tp_config["triggered"] = True
-                            modified = True
-
-            elif tp_type == "trailing" and not tp_config.get("active"):
-                activation = tp_config.get("activation_price")
-                if activation:
-                    hit = (not is_short and current_price >= activation) or (is_short and current_price <= activation)
-                    if hit:
-                        logger.info(f"TRAILING TP ACTIVATED for {symbol}")
-                        dist = tp_config.get("distance", 1.0)
-                        pos["stop_loss"] = {
-                            "type": "trailing_fixed",
-                            "value": current_price + dist if is_short else current_price - dist,
-                            "initial_value": current_price + dist if is_short else current_price - dist,
-                            "initial_distance": dist,
-                            "high_water_mark": current_price,
-                        }
-                        tp_config["active"] = True
-                        modified = True
-
-    # IMPORTANT: Save local modifications (HWM updates, SL moves, Trigger flags)
-    # BEFORE calling execute_order, which reloads the file.
-    if modified:
-        _save_portfolio(portfolio)
-
-    # 4. Execute Sells (Partials first, then full)
-    execution_triggered = False
-    for symbol, side, exec_qty, s_price in partial_sells:
-        execute_order(symbol, side, exec_qty, s_price, comment="TAKE PROFIT (SCALED)")
-        execution_triggered = True
-
-    for symbol, reason in to_remove:
-        # Re-fetch to check if still exists after partials
-        current_p = _load_portfolio()
-        if symbol in current_p["holdings"]:
-            side = "BUY" if current_p["holdings"][symbol]["quantity"] < 0 else "SELL"
-            execute_order(symbol, side, abs(current_p["holdings"][symbol]["quantity"]), prices.get(symbol, 0), comment=reason)
-            execution_triggered = True
-
-    if execution_triggered:
-        return _load_portfolio()
-
-    return portfolio
-
-
-def update_stop_loss(
-    symbol: str,
-    sl_config: dict | None = None,
-    take_profit: float | None = None,
-    tp_config: dict | None = None,
-):
-    portfolio = _load_portfolio()
-    symbol = symbol.upper()
-    if symbol in portfolio["holdings"]:
-        if sl_config is not None:
-            portfolio["holdings"][symbol]["stop_loss"] = sl_config
-        if take_profit is not None:
-            portfolio["holdings"][symbol]["take_profit"] = take_profit
-        if tp_config is not None:
-            portfolio["holdings"][symbol]["tp_config"] = tp_config
-        _save_portfolio(portfolio)
-    return portfolio
-
-
-def remove_position(symbol: str):
-    portfolio = _load_portfolio()
-    symbol = symbol.upper()
-
-    if symbol in portfolio["holdings"]:
-        del portfolio["holdings"][symbol]
-        _save_portfolio(portfolio)
-        return portfolio
-    else:
-        # If not found, just return current portfolio (idempotent-ish) or raise error?
-        # Let's just return current state to be safe.
-        return portfolio
-
+                logger.info(
+                    f"ALERT TRIGGERED: {alert['symbol']} is {alert['condition']} "
+                    f"{alert['target_price']} (current: {current_price})"
+                )
+                # Deactivate the alert by deleting it (one-shot alerts)
+                delete_alert(alert["id"])
+        except Exception as e:
+            logger.error(f"Failed to check alert for {alert['symbol']}: {e}")
 
 def reset_portfolio():
-    _save_portfolio(DEFAULT_PORTFOLIO)
-    return DEFAULT_PORTFOLIO
+    with Session(engine) as session:
+        statement = delete(Position)
+        session.exec(statement)
+        session.commit()
+    return get_portfolio()
 
-
-def clear_history():
-    portfolio = _load_portfolio()
-    portfolio["history"] = []
-    _save_portfolio(portfolio)
-    return portfolio
-
-
-def remove_history_item(item_id: str):
-    portfolio = _load_portfolio()
-    portfolio["history"] = [h for h in portfolio["history"] if h.get("id") != item_id]
-    _save_portfolio(portfolio)
-    return portfolio
-
+def remove_position(symbol: str):
+    symbol = symbol.upper()
+    with Session(engine) as session:
+        statement = delete(Position).where(Position.symbol == symbol)
+        session.exec(statement)
+        session.commit()
+    return get_portfolio()
 
 def set_cash(amount: float):
-    portfolio = _load_portfolio()
-    portfolio["cash"] = amount
-    _save_portfolio(portfolio)
-    return portfolio
+    with Session(engine) as session:
+        account = _get_or_create_account(session)
+        account.cash_balance = amount
+        account.last_updated = datetime.utcnow()
+        session.add(account)
+        session.commit()
+    return get_portfolio()
+
+def clear_history():
+    with Session(engine) as session:
+        statement = delete(OrderHistory)
+        session.exec(statement)
+        session.commit()
+    return get_portfolio()
+
+def remove_history_item(item_id: str):
+    with Session(engine) as session:
+        try:
+            item_id_int = int(item_id)
+        except ValueError:
+            return get_portfolio()
+        statement = delete(OrderHistory).where(OrderHistory.id == item_id_int)
+        session.exec(statement)
+        session.commit()
+    return get_portfolio()

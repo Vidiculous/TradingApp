@@ -9,7 +9,7 @@ import feedparser
 # or we can use yfinance news if available, yfinance Ticker object has .news
 import yfinance as yf
 
-from .sentiment import analyze_sentiment
+from .sentiment import analyze_sentiment, analyze_sentiment_smart
 
 # Expanded RSS Feeds with Swedish and European Focus
 RSS_FEEDS = {
@@ -142,7 +142,7 @@ def get_ticker_news(symbol: str) -> list[dict[str, Any]]:
                     "headline": title or "Market Update",
                     "url": link or "#",
                     "publishedAt": pub_date,
-                    "sentiment": analyze_sentiment(title or "", ""),
+                    "sentiment": "PENDING",
                 }
             )
 
@@ -179,9 +179,7 @@ def get_ticker_from_rss_feeds(symbol: str, max_per_source: int = 2) -> list[dict
                             "url": entry.link,
                             "publishedAt": pub_date,
                             "summary": entry.get("summary", "")[:200],
-                            "sentiment": analyze_sentiment(
-                                entry.title, entry.get("summary", "")[:200]
-                            ),
+                            "sentiment": "PENDING",
                         }
                     )
                     source_count += 1
@@ -257,7 +255,7 @@ async def get_multi_source_ticker_news(symbol: str, max_per_source: int = 3) -> 
                     "url": item["url"],
                     "publishedAt": item.get("date", ""),
                     "summary": item.get("body", ""),
-                    "sentiment": analyze_sentiment(item["title"], item.get("body", "")),
+                    "sentiment": "PENDING",
                 }
                 for item in ddg_news
             ]
@@ -276,6 +274,29 @@ async def get_multi_source_ticker_news(symbol: str, max_per_source: int = 3) -> 
     unique_news.sort(key=lambda x: x.get("publishedAt", ""), reverse=True)
 
     result = unique_news[:15]  # Top 15 from all sources
+
+    # --- BATCH SENTIMENT ANALYSIS ---
+    # Prepare batch for LLM
+    items_to_analyze = []
+    for item in result:
+        items_to_analyze.append({
+            "title": item["headline"],
+            "summary": item.get("summary", "")
+        })
+    
+    # Run async analysis
+    if items_to_analyze:
+        sentiments = await analyze_sentiment_smart(items_to_analyze)
+        
+        # Merge back
+        for i, item in enumerate(result):
+            if i < len(sentiments):
+                item["sentiment"] = sentiments[i]["sentiment"]
+                item["sentiment_score"] = sentiments[i]["confidence"]
+                item["sentiment_reason"] = sentiments[i]["reason"]
+            else:
+                # Fallback if length mismatch (shouldn't happen with smart analyzer)
+                item["sentiment"] = "NEUTRAL"
 
     # Cache the result
     _news_cache[cache_key] = {"news": result, "timestamp": datetime.now()}

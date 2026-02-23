@@ -51,6 +51,12 @@ export const TradingViewChart = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawings, setDrawings] = useState<number[]>([]);
 
+  // Shift timestamp by local timezone offset for Lightweight Charts
+  const getLocalTime = (ts: string | number | Date): Time => {
+    const d = new Date(ts);
+    return Math.floor(d.getTime() / 1000 - d.getTimezoneOffset() * 60) as Time;
+  };
+
   // Load drawings
   useEffect(() => {
     if (!symbol) return;
@@ -169,7 +175,7 @@ export const TradingViewChart = ({
 
       // Set Series Data
       const formattedData = data.map((d) => ({
-        time: (new Date(d.timestamp).getTime() / 1000) as Time,
+        time: getLocalTime(d.timestamp),
         ...(chartType === "candles"
           ? { open: d.open, high: d.high, low: d.low, close: d.close }
           : { value: d.close }
@@ -217,7 +223,7 @@ export const TradingViewChart = ({
           title: "VWAP",
         });
         vwapSeries.setData(data.filter(d => d.vwap != null).map(d => ({
-          time: (new Date(d.timestamp).getTime() / 1000) as Time,
+          time: getLocalTime(d.timestamp),
           value: d.vwap,
         })));
       }
@@ -234,7 +240,7 @@ export const TradingViewChart = ({
         const ema9Data = data
           .filter((d) => d.ema9 !== null && d.ema9 !== undefined)
           .map((d) => ({
-            time: (new Date(d.timestamp).getTime() / 1000) as Time,
+            time: getLocalTime(d.timestamp),
             value: d.ema9,
           }));
         ema9Series.setData(ema9Data);
@@ -252,7 +258,7 @@ export const TradingViewChart = ({
         const ema21Data = data
           .filter((d) => d.ema21 !== null && d.ema21 !== undefined)
           .map((d) => ({
-            time: (new Date(d.timestamp).getTime() / 1000) as Time,
+            time: getLocalTime(d.timestamp),
             value: d.ema21,
           }));
         ema21Series.setData(ema21Data);
@@ -296,7 +302,7 @@ export const TradingViewChart = ({
           const rsiData = data
             .filter((d) => d.rsi !== null && d.rsi !== undefined)
             .map((d) => ({
-              time: (new Date(d.timestamp).getTime() / 1000) as Time,
+              time: getLocalTime(d.timestamp),
               value: d.rsi,
             }));
           rsiSeries.setData(rsiData);
@@ -321,15 +327,15 @@ export const TradingViewChart = ({
           });
 
           macdSeries.setData(data.filter(d => d.macd != null).map(d => ({
-            time: (new Date(d.timestamp).getTime() / 1000) as Time,
+            time: getLocalTime(d.timestamp),
             value: d.macd
           })));
           signalSeries.setData(data.filter(d => d.macd_signal != null).map(d => ({
-            time: (new Date(d.timestamp).getTime() / 1000) as Time,
+            time: getLocalTime(d.timestamp),
             value: d.macd_signal
           })));
           histSeries.setData(data.filter(d => d.macd_hist != null).map(d => ({
-            time: (new Date(d.timestamp).getTime() / 1000) as Time,
+            time: getLocalTime(d.timestamp),
             value: d.macd_hist,
             color: d.macd_hist >= 0 ? "rgba(38, 166, 154, 0.6)" : "rgba(255, 82, 82, 0.6)"
           })));
@@ -416,12 +422,12 @@ export const TradingViewChart = ({
 
     const markers = history
       .map((h: any) => {
-        const tradeTime = new Date(h.timestamp).getTime() / 1000;
+        const tradeTime = getLocalTime(h.timestamp) as number;
 
         // Find best matching bar
         let closestBarTime: number | null = null;
         for (let i = data.length - 1; i >= 0; i--) {
-          const barTime = new Date(data[i].timestamp).getTime() / 1000;
+          const barTime = getLocalTime(data[i].timestamp) as number;
           if (barTime <= tradeTime) {
             closestBarTime = barTime;
             break;
@@ -431,8 +437,8 @@ export const TradingViewChart = ({
         if (closestBarTime === null) return null;
 
         // Skip if bar is too far
-        const dataStart = new Date(data[0].timestamp).getTime() / 1000;
-        const dataEnd = new Date(data[data.length - 1].timestamp).getTime() / 1000;
+        const dataStart = getLocalTime(data[0].timestamp) as number;
+        const dataEnd = getLocalTime(data[data.length - 1].timestamp) as number;
         if (closestBarTime < dataStart || closestBarTime > dataEnd) return null;
 
         const tradeSide = h.side.toUpperCase();

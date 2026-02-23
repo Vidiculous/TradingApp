@@ -84,7 +84,7 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
               }}
               onFocus={() => setShowSuggestions(true)}
               placeholder="Search active ticker (e.g. AAPL)..."
-              className="w-full rounded-2xl bg-transparent px-4 py-4 font-medium text-white placeholder-gray-500 focus:outline-none"
+              className="w-full rounded-2xl bg-transparent px-4 py-2.5 font-medium text-white placeholder-gray-500 focus:outline-none"
               disabled={isLoading}
             />
             {isLoading && (
@@ -95,7 +95,7 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
       </form>
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="animation-in slide-in-from-top-2 fade-in absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0a]/90 text-left shadow-2xl backdrop-blur-xl duration-200">
+        <div className="animation-in slide-in-from-top-2 fade-in absolute z-[9999] mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[#000000] text-left shadow-2xl duration-200">
           <ul className="custom-scrollbar max-h-64 overflow-y-auto">
             {suggestions.map((match) => (
               <li

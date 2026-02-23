@@ -20,7 +20,7 @@ export const TimeAndSales = ({ symbol }: { symbol: string }) => {
       const res = await fetch(`/api/market/tape/${symbol}`);
       if (res.ok) {
         const data = await res.json();
-        setTrades(data);
+        setTrades(data?.trades || data || []);
       }
     } catch (error) {
       console.error("Failed to fetch tape", error);

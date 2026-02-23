@@ -1,7 +1,7 @@
 "use client";
 
 import { Briefcase, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatCurrency } from "../utils/format";
 
@@ -63,7 +63,7 @@ export const PositionsTable = ({
           if (timeDiff < 10000) {
             // If it happened in the last 10 seconds
             new Notification(`Trade Executed: ${latestAction.symbol}`, {
-              body: `${latestAction.side} ${latestAction.qty} shares at $${latestAction.price}. P&L: $${latestAction.realized_pnl_usd.toFixed(2)}`,
+              body: `${latestAction.side} ${latestAction.qty} shares at $${latestAction.price}. P&L: $${(latestAction.realized_pnl ?? 0).toFixed(2)}`,
             });
           }
         }
@@ -169,54 +169,78 @@ export const PositionsTable = ({
     fetchPortfolio();
   }, [onRefresh]);
 
+  const holdingsList = useMemo(() => {
+    if (!portfolio?.holdings) return [];
+    return Object.entries(portfolio.holdings).map(([symbol, pos]) => ({
+      ...pos,
+      symbol,
+    }));
+  }, [portfolio?.holdings]);
+
+  const historyList = useMemo(() => {
+    if (!portfolio?.history) return [];
+    return portfolio.history
+      .filter((h: any) => {
+        if (!dateFilter) return true;
+        return h.timestamp.startsWith(dateFilter);
+      })
+      .reverse();
+  }, [portfolio?.history, dateFilter]);
+
+  // Calculate portfolio metrics (memoized to avoid recomputation on every render)
+  const { totalUnrealizedPnL, totalEquity, equityChangePercent, winRate, bestTrade, worstTrade } =
+    useMemo(() => {
+      if (!portfolio) {
+        return {
+          totalUnrealizedPnL: 0,
+          totalEquity: 0,
+          equityChangePercent: 0,
+          winRate: 0,
+          bestTrade: 0,
+          worstTrade: 0,
+        };
+      }
+
+      const unrealizedPnL = holdingsList.reduce((sum, pos) => {
+        const isCurrent = pos.symbol === activeSymbol;
+        const marketPrice = isCurrent ? currentPrice : pos.average_cost;
+        const isShort = pos.quantity < 0;
+        const pnlPerShare = isShort
+          ? pos.average_cost - (marketPrice || 0)
+          : (marketPrice || 0) - pos.average_cost;
+        return sum + pnlPerShare * Math.abs(pos.quantity);
+      }, 0);
+
+      const equity = portfolio.cash + unrealizedPnL;
+      const eqPct = portfolio.cash > 0 ? (unrealizedPnL / portfolio.cash) * 100 : 0;
+
+      const closedTrades = portfolio.history.filter(
+        (h: any) => (h.side === "SELL" || h.side === "BUY") && h.realized_pnl_usd !== undefined,
+      );
+      const profitableTrades = closedTrades.filter((h: any) => h.realized_pnl_usd > 0);
+      const wr = closedTrades.length > 0 ? (profitableTrades.length / closedTrades.length) * 100 : 0;
+
+      const positionPnLs = holdingsList.map((pos) => {
+        const isCurrent = pos.symbol === activeSymbol;
+        const marketPrice = isCurrent ? currentPrice : pos.average_cost;
+        const isShort = pos.quantity < 0;
+        const pnlPerShare = isShort
+          ? pos.average_cost - (marketPrice || 0)
+          : (marketPrice || 0) - pos.average_cost;
+        return pnlPerShare * Math.abs(pos.quantity);
+      });
+
+      return {
+        totalUnrealizedPnL: unrealizedPnL,
+        totalEquity: equity,
+        equityChangePercent: eqPct,
+        winRate: wr,
+        bestTrade: positionPnLs.length > 0 ? Math.max(...positionPnLs, 0) : 0,
+        worstTrade: positionPnLs.length > 0 ? Math.min(...positionPnLs, 0) : 0,
+      };
+    }, [holdingsList, activeSymbol, currentPrice, portfolio?.cash, portfolio?.history]);
+
   if (loading || !portfolio) return <div className="h-40 animate-pulse rounded-3xl bg-white/5" />;
-
-  const holdingsList = Object.entries(portfolio.holdings).map(([symbol, pos]) => ({
-    ...pos,
-    symbol,
-  }));
-
-  const historyList = portfolio.history
-    .filter((h: any) => {
-      if (!dateFilter) return true;
-      return h.timestamp.startsWith(dateFilter);
-    })
-    .reverse();
-
-  // Calculate portfolio metrics
-  const totalUnrealizedPnL = holdingsList.reduce((sum, pos) => {
-    const isCurrent = pos.symbol === activeSymbol;
-    const marketPrice = isCurrent ? currentPrice : pos.average_cost;
-    const isShort = pos.quantity < 0;
-
-    // PnL per share: Long = market - entry, Short = entry - market
-    const pnlPerShare = isShort ? pos.average_cost - (marketPrice || 0) : (marketPrice || 0) - pos.average_cost;
-    const pnlValue = pnlPerShare * Math.abs(pos.quantity);
-
-    return sum + pnlValue;
-  }, 0);
-
-  const totalEquity = portfolio.cash + totalUnrealizedPnL;
-  const equityChangePercent = portfolio.cash > 0 ? (totalUnrealizedPnL / portfolio.cash) * 100 : 0;
-
-  // Calculate win rate from history
-  const closedTrades = portfolio.history.filter(
-    (h: any) => (h.side === "SELL" || h.side === "BUY") && h.realized_pnl_usd !== undefined,
-  );
-  const profitableTrades = closedTrades.filter((h: any) => h.realized_pnl_usd > 0);
-  const winRate =
-    closedTrades.length > 0 ? (profitableTrades.length / closedTrades.length) * 100 : 0;
-
-  // Find best/worst trades (approximate from current holdings)
-  const positionPnLs = holdingsList.map((pos) => {
-    const isCurrent = pos.symbol === activeSymbol;
-    const marketPrice = isCurrent ? currentPrice : pos.average_cost;
-    const isShort = pos.quantity < 0;
-    const pnlPerShare = isShort ? pos.average_cost - (marketPrice || 0) : (marketPrice || 0) - pos.average_cost;
-    return pnlPerShare * Math.abs(pos.quantity);
-  });
-  const bestTrade = positionPnLs.length > 0 ? Math.max(...positionPnLs, 0) : 0;
-  const worstTrade = positionPnLs.length > 0 ? Math.min(...positionPnLs, 0) : 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -324,8 +348,9 @@ export const PositionsTable = ({
           <button
             onClick={fetchPortfolio}
             className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-white/10"
+            aria-label="Refresh portfolio"
           >
-            <RefreshCw size={12} />
+            <RefreshCw size={12} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -647,9 +672,10 @@ export const PositionsTable = ({
                         <button
                           onClick={() => deletePosition(pos.symbol)}
                           className="p-1 text-gray-600 opacity-30 transition-colors hover:text-red-400 hover:opacity-100"
+                          aria-label={`Remove ${pos.symbol} position`}
                           title="Liquidate Position"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
@@ -736,6 +762,7 @@ export const PositionsTable = ({
                         <button
                           onClick={() => deleteHistoryItem(item.id)}
                           className="p-1.5 text-gray-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100"
+                          aria-label={`Delete ${item.side} ${item.symbol} history entry`}
                         >
                           <Trash2 size={12} />
                         </button>

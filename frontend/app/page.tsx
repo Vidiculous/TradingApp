@@ -4,6 +4,7 @@ import { LayoutDashboard, LayoutGrid } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+import type { AIAnalysis, TickerData } from "@/types/api";
 import { AgentAnalysisView } from "@/components/AgentAnalysisView";
 import { ChartSection } from "@/components/ChartSection";
 import { DashboardRightPanel } from "@/components/DashboardRightPanel";
@@ -22,7 +23,7 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [tickerData, setTickerData] = useState<any>(null);
+  const [tickerData, setTickerData] = useState<TickerData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -30,7 +31,7 @@ function DashboardContent() {
   const [refreshPositions, setRefreshPositions] = useState(0);
 
   // AI State
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   // URL Sync: Read ticker from URL on mount and navigation
@@ -49,7 +50,11 @@ function DashboardContent() {
     }
   }, [searchParams]);
 
-  const runAiAnalysis = async (horizon: string = "Swing") => {
+  const runAiAnalysis = async (
+    horizon: string = "Swing",
+    autonomous: boolean = false,
+    usePortfolio: boolean = true
+  ) => {
     if (!tickerData?.meta?.symbol) return;
     setAiLoading(true);
     setAiAnalysis(null);
@@ -58,7 +63,15 @@ function DashboardContent() {
       const startRes = await fetch("/api/agent/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: tickerData.meta.symbol, horizon }),
+        body: JSON.stringify({
+          symbol: tickerData.meta.symbol,
+          horizon,
+          autonomous,
+          use_portfolio: usePortfolio,
+          provider: localStorage.getItem("trading_llm_provider"),
+          model: localStorage.getItem("trading_llm_model"),
+          api_key: localStorage.getItem("trading_llm_api_key"),
+        }),
       });
 
       const startData = await startRes.json();
@@ -68,7 +81,7 @@ function DashboardContent() {
 
       // 2. Poll for Results
       let attempts = 0;
-      const maxAttempts = 120; // 2 minutes timeout
+      const maxAttempts = 300; // 5 minutes timeout
 
       while (attempts < maxAttempts) {
         const statusRes = await fetch(`/api/agent/status/${jobId}`);
@@ -76,6 +89,10 @@ function DashboardContent() {
 
         if (statusData.status === "completed") {
           setAiAnalysis(statusData.result);
+          // If an autonomous trade was executed, refresh the positions table
+          if (statusData.result?.execution_status?.startsWith("Successfully")) {
+            setRefreshPositions((prev) => prev + 1);
+          }
           return;
         } else if (statusData.status === "failed") {
           throw new Error(statusData.error || "Analysis job failed");
@@ -91,7 +108,7 @@ function DashboardContent() {
       console.error(e);
       // Show error in a toast or alert - for now verify parsing happens correctly
       // We might want to set a specific error state for the UI, but console is fine for debugging
-      alert(`Analysis Failed: ${e.message}`);
+      console.error("Analysis Failed:", e.message);
     } finally {
       setAiLoading(false);
     }
@@ -230,62 +247,63 @@ function DashboardContent() {
           <div className="absolute left-[20%] top-[20%] h-[30%] w-[30%] rounded-full bg-emerald-500/5 blur-[120px]" />
         </div>
 
-        <div className="relative z-10 w-full space-y-6 px-4 md:px-8">
+        <div className="relative w-full space-y-6 px-4 md:px-8">
           {/* Main Navigation Bar - Pixel-Perfect Sync with Dashboard Grid */}
-          <header className="relative grid grid-cols-1 items-center gap-4 border-b border-white/5 py-4 lg:grid-cols-12">
-            {/* Left Header Area (Synced with Ticker Header & Chart) */}
-            <div className="col-span-1 flex items-center justify-between gap-4 lg:col-span-8">
-              {/* Logo Group */}
-              <div className="flex shrink-0 items-center gap-4">
-                <div className="glass-panel rounded-2xl border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 p-2.5 shadow-lg shadow-emerald-500/5">
-                  <LayoutDashboard className="text-emerald-400" size={22} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <button onClick={handleBackToLanding} className="group block text-left">
-                    <h1 className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-xl font-black tracking-tighter text-transparent transition-all duration-300 group-hover:from-emerald-400 group-hover:to-white">
-                      MARKET<span className="text-emerald-500">DASH</span>{" "}
-                      <span className="ml-1 rounded border border-gray-800 px-1 align-top font-mono text-[10px] text-gray-500 opacity-50">
-                        PRO
-                      </span>
-                    </h1>
-                  </button>
-                </div>
+          <header className="sticky top-0 z-[1000] flex items-center justify-between border-b border-white/5 bg-[#09090b] py-3 backdrop-blur-xl">
+            {/* Left Header Area: Logo */}
+            <div className="flex flex-1 items-center gap-4">
+              <div className="glass-panel rounded-2xl border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 p-2 shadow-lg shadow-emerald-500/5">
+                <LayoutDashboard className="text-emerald-400" size={20} />
               </div>
+              <div className="flex flex-col justify-center">
+                <button onClick={handleBackToLanding} className="group block text-left">
+                  <h1 className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-lg font-black tracking-tighter text-transparent transition-all duration-300 group-hover:from-emerald-400 group-hover:to-white">
+                    MARKET<span className="text-emerald-500">DASH</span>{" "}
+                    <span className="ml-1 rounded border border-gray-800 px-1 align-top font-mono text-[9px] text-gray-500 opacity-50">
+                      PRO
+                    </span>
+                  </h1>
+                </button>
+              </div>
+            </div>
 
-              {/* Central Search Section - Manually centered in the lg:col-span-8 area */}
-              <div className="mx-auto hidden max-w-xl flex-1 justify-center px-4 md:flex">
-                <div className="group relative w-full">
-                  <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 opacity-10 blur transition-opacity group-hover:opacity-20"></div>
-                  <div className="relative">
-                    <SearchBar onSearch={handleSearch} isLoading={loading} />
-                  </div>
+            {/* Central Search Section */}
+            <div className="hidden w-full max-w-md flex-[2] md:block">
+              <div className="group relative w-full">
+                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 opacity-10 blur transition-opacity group-hover:opacity-20"></div>
+                <div className="relative">
+                  <SearchBar onSearch={handleSearch} isLoading={loading} />
                 </div>
               </div>
             </div>
 
-            {/* Right Header Area (Synced with Sidebar/Action Panel) */}
-            <div className="col-span-1 flex items-center justify-end lg:col-span-4">
-              <div className="flex rounded-xl border border-white/5 bg-white/5 p-1">
+            {/* Right Header Area: View Switcher */}
+            <div className="flex flex-1 items-center justify-end gap-4">
+              <div className="flex rounded-xl border border-white/5 bg-white/5 p-1" role="tablist" aria-label="Dashboard view mode">
                 <button
                   onClick={() => setViewMode("standard")}
-                  className={`rounded-lg p-2 transition-all ${viewMode === "standard" ? "bg-emerald-500/20 text-emerald-400 shadow-xl" : "text-gray-500 hover:text-white"}`}
-                  title="Portfolio View"
+                  className={`rounded-lg p-1.5 transition-all ${viewMode === "standard" ? "bg-emerald-500/20 text-emerald-400 shadow-xl" : "text-gray-500 hover:text-white"}`}
+                  role="tab"
+                  aria-selected={viewMode === "standard"}
+                  aria-label="Portfolio View"
                 >
-                  <LayoutDashboard size={18} />
+                  <LayoutDashboard size={16} aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`rounded-lg p-2 transition-all ${viewMode === "grid" ? "bg-emerald-500/20 text-emerald-400 shadow-xl" : "text-gray-500 hover:text-white"}`}
-                  title="Grid Terminal"
+                  className={`rounded-lg p-1.5 transition-all ${viewMode === "grid" ? "bg-emerald-500/20 text-emerald-400 shadow-xl" : "text-gray-500 hover:text-white"}`}
+                  role="tab"
+                  aria-selected={viewMode === "grid"}
+                  aria-label="Grid Terminal"
                 >
-                  <LayoutGrid size={18} />
+                  <LayoutGrid size={16} aria-hidden="true" />
                 </button>
               </div>
             </div>
           </header>
 
           {/* Sub-header Context (Recent Searches / Mobile Search) */}
-          <div className="flex flex-col gap-4">
+          <div className="relative z-40 flex flex-col gap-4">
             <div className="lg:hidden">
               <SearchBar onSearch={handleSearch} isLoading={loading} />
             </div>

@@ -1,64 +1,49 @@
-import json
 import logging
-import os
 import uuid
+from typing import List, Optional
+from datetime import datetime
+from sqlmodel import Session, select, delete
+from db_models.db import Alert
+from services.db_service import engine
 
 logger = logging.getLogger(__name__)
 
-ALERTS_FILE = "data/alerts.json"
-
-
-def _load_alerts() -> list[dict]:
-    if not os.path.exists("data"):
-        os.makedirs("data")
-
-    if not os.path.exists(ALERTS_FILE):
-        return []
-
-    try:
-        with open(ALERTS_FILE) as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load alerts: {e}")
-        return []
-
-
-def _save_alerts(alerts: list[dict]):
-    try:
-        with open(ALERTS_FILE, "w") as f:
-            json.dump(alerts, f, indent=4)
-    except Exception as e:
-        logger.error(f"Failed to save alerts: {e}")
-
-
-def get_alerts(symbol: str | None = None) -> list[dict]:
-    alerts = _load_alerts()
-    if symbol:
-        return [a for a in alerts if a["symbol"] == symbol.upper()]
-    return alerts
-
+def get_alerts(symbol: str | None = None) -> List[dict]:
+    """
+    Get all alerts, optionally filtered by symbol.
+    """
+    with Session(engine) as session:
+        statement = select(Alert)
+        if symbol:
+            statement = statement.where(Alert.symbol == symbol.upper())
+        
+        results = session.exec(statement).all()
+        return [r.dict() for r in results]
 
 def add_alert(symbol: str, target_price: float, condition: str):
     """
     condition: 'ABOVE' or 'BELOW'
     """
-    alerts = _load_alerts()
-
-    alert = {
-        "id": str(uuid.uuid4()),
-        "symbol": symbol.upper(),
-        "target_price": target_price,
-        "condition": condition.upper(),
-        "created_at": 0,  # TODO: Timestamp
-    }
-
-    alerts.append(alert)
-    _save_alerts(alerts)
-    return alert
-
+    with Session(engine) as session:
+        alert = Alert(
+            id=str(uuid.uuid4()),
+            symbol=symbol.upper(),
+            target_price=target_price,
+            condition=condition.upper(),
+            created_at=datetime.utcnow(),
+            is_active=True
+        )
+        session.add(alert)
+        session.commit()
+        session.refresh(alert)
+        return alert.dict()
 
 def delete_alert(alert_id: str):
-    alerts = _load_alerts()
-    alerts = [a for a in alerts if a["id"] != alert_id]
-    _save_alerts(alerts)
+    """
+    Delete an alert by its ID.
+    """
+    with Session(engine) as session:
+        statement = delete(Alert).where(Alert.id == alert_id)
+        session.exec(statement)
+        session.commit()
     return True

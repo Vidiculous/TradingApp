@@ -1,0 +1,21 @@
+{
+  "SAAB-B.ST_news_fallback_Swing": {
+    "signal": "BULLISH",
+    "confidence": 0.85,
+    "health_status": "STRONG",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "The narrative has shifted from 'cost-optimization' to 'rapid capacity expansion' to meet unprecedented demand from NATO and European allies.",
+      "Saab's unique value proposition\u2014providing high-tech defense solutions (Gripen, NLAW, GlobalEye) at a lower cost-of-ownership than US peers\u2014is gaining traction in a budget-conscious but threat-heavy environment.",
+      "Sweden's formal entry into NATO acts as a structural catalyst, integrating Saab more deeply into the alliance's long-term procurement cycles."
+    ],
+    "red_flags": [
+      "Execution Risk: The massive order backlog creates pressure on supply chains and skilled labor availability, which could lead to delivery delays.",
+      "Fixed-Price Contracts: Potential margin compression if inflationary pressures on raw materials (specialty steel, electronics) exceed the escalation clauses in long-term defense contracts.",
+      "Limited recent insider buying activity suggests management may view the current valuation as 'fair' rather than 'undervalued' following the recent run-up."
+    ],
+    "reasoning": "The 'True Story' for Saab is the transition from a niche regional player to a central pillar of European security. While the financials show growth, the forensic narrative reveals a company fundamentally re-tooling its entire business model for a 'high-intensity' geopolitical era. The moat is widened by high switching costs and national security dependencies, though the primary risk is now operational (can they build it fast enough?) rather than demand-based.",
+    "conclusion": "Bullish on the structural tailwinds and strategic moat; the narrative supports a 'buy-on-dips' strategy for a swing horizon as backlog conversion accelerates.",
+    "_expires_at": 1771862223.4422855
+  }
+}

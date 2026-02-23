@@ -24,7 +24,7 @@ export const EconomicCalendar = () => {
         const res = await fetch("/api/market/calendar");
         if (res.ok) {
           const data = await res.json();
-          setEvents(data);
+          setEvents(data?.events || data || []);
         }
       } catch (error) {
         console.error("Failed to fetch calendar", error);
