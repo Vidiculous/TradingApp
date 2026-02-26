@@ -234,6 +234,14 @@ async def sync_portfolio_stops():
         try:
             execute_order(symbol=symbol, side=side, qty=qty, price=price, reason=reason)
             logger.info(f"Auto-executed {side} {qty} {symbol} @ {price} (reason: {reason})")
+        except ValueError as e:
+            err_msg = str(e).lower()
+            if "insufficient position" in err_msg or "position not found" in err_msg:
+                logger.info(
+                    f"Skipping {reason} for {symbol}: position already closed (race condition) — {e}"
+                )
+            else:
+                logger.error(f"Failed to auto-execute {reason} for {symbol}: {e}")
         except Exception as e:
             logger.error(f"Failed to auto-execute {reason} for {symbol}: {e}")
 
@@ -286,6 +294,64 @@ def remove_position(symbol: str):
         session.exec(statement)
         session.commit()
     return get_portfolio()
+
+def get_analytics() -> dict:
+    """
+    Computes portfolio analytics from closed trade history.
+    Returns equity curve, win rate, profit factor, and P&L summary.
+    """
+    with Session(engine) as session:
+        statement = select(OrderHistory).where(OrderHistory.side == "SELL").order_by(OrderHistory.timestamp)
+        sells = session.exec(statement).all()
+
+    if not sells:
+        return {
+            "equity_curve": [],
+            "total_realized_pnl": 0.0,
+            "trade_count": 0,
+            "win_rate": 0.0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0,
+            "profit_factor": 0.0,
+        }
+
+    # Build equity curve grouped by date
+    daily_pnl: dict[str, float] = {}
+    wins: list[float] = []
+    losses: list[float] = []
+
+    for sell in sells:
+        pnl = sell.realized_pnl or 0.0
+        date_str = sell.timestamp.strftime("%Y-%m-%d") if sell.timestamp else "unknown"
+        daily_pnl[date_str] = daily_pnl.get(date_str, 0.0) + pnl
+        if pnl > 0:
+            wins.append(pnl)
+        elif pnl < 0:
+            losses.append(pnl)
+
+    # Cumulative sum for equity curve
+    cumulative = 0.0
+    equity_curve = []
+    for date_str in sorted(daily_pnl.keys()):
+        cumulative += daily_pnl[date_str]
+        equity_curve.append({"date": date_str, "cumulative_pnl": round(cumulative, 2)})
+
+    total_wins = sum(wins)
+    total_losses = abs(sum(losses))
+    profit_factor = round(total_wins / total_losses, 2) if total_losses > 0 else 0.0
+    trade_count = len(sells)
+    win_rate = round(len(wins) / trade_count * 100, 1) if trade_count > 0 else 0.0
+
+    return {
+        "equity_curve": equity_curve,
+        "total_realized_pnl": round(cumulative, 2),
+        "trade_count": trade_count,
+        "win_rate": win_rate,
+        "avg_win": round(sum(wins) / len(wins), 2) if wins else 0.0,
+        "avg_loss": round(sum(losses) / len(losses), 2) if losses else 0.0,
+        "profit_factor": profit_factor,
+    }
+
 
 def set_cash(amount: float):
     with Session(engine) as session:

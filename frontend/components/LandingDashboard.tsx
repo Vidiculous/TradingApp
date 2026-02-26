@@ -7,6 +7,8 @@ import { formatCurrency } from "../utils/format";
 import { FavoritesGrid } from "./FavoritesGrid";
 import { MarketHeatmap } from "./MarketHeatmap";
 import { MarketMovers } from "./MarketMovers";
+import { MarketScreener } from "./MarketScreener";
+import { PortfolioAnalyticsPanel } from "./PortfolioAnalytics";
 
 interface LandingDashboardProps {
   onSelect: (symbol: string) => void;
@@ -127,6 +129,9 @@ export const LandingDashboard = ({ onSelect }: LandingDashboardProps) => {
         </div>
       </section>
 
+      {/* Portfolio Analytics */}
+      <PortfolioAnalyticsPanel />
+
       {/* Watchlist Section */}
       <section>
         <div className="mb-4 flex items-center gap-2">
@@ -150,6 +155,12 @@ export const LandingDashboard = ({ onSelect }: LandingDashboardProps) => {
           <MarketMovers onSelect={onSelect} fixedMarket="EU" />
         </div>
       </section>
+
+      {/* Separator */}
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+      {/* Signal Scanner Section */}
+      <MarketScreener onSelect={onSelect} />
 
       {/* Separator */}
       <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />

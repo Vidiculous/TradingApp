@@ -28,6 +28,7 @@ class BaseAgent:
         self.system_prompt = ""
         self.registry: Dict[str, 'BaseAgent'] = {} # Agent registry for inter-agent comms
         self.tool_manager = None
+        self._tool_context: Optional[Dict] = None
         if prompt_file:
             self.load_prompt(prompt_file)
 
@@ -215,7 +216,7 @@ class BaseAgent:
                 # --- Handle tool calls ---
                 if isinstance(response, dict) and "tool_calls" in response:
                     for tc in response["tool_calls"]:
-                        result = await tm.execute_tool(tc["name"], tc["arguments"], context=user_content)
+                        result = await tm.execute_tool(tc["name"], tc["arguments"], context=self._tool_context)
                         all_tool_results[tc["name"]] = result  # merge into cumulative dict
                         print(f"    [{self.name}] Tool '{tc['name']}' executed.")
 
@@ -252,7 +253,7 @@ class BaseAgent:
             print(f"LLM Error ({self.name}): {e}")
             return {"error": str(e), "signal": "NEUTRAL"} if is_json else f"I encountered an error: {str(e)}"
 
-    async def chat(self, message, context=None, api_config=None):
+    async def chat(self, message, context=None, api_config=None, depth=0):
         """
         Chat with the agent.
         """
@@ -291,14 +292,16 @@ CRITICAL: You MUST base all responses on this current date. Do NOT reference eve
             is_json=False,
         )
 
-    async def ask_agent(self, agent_id: str, question: str, context: Any = None, api_config: Dict = None) -> str:
+    async def ask_agent(self, agent_id: str, question: str, context: Any = None, api_config: Dict = None, depth: int = 0) -> str:
         """Query another agent by its ID."""
+        if depth > 2:
+            return "Error: max inter-agent depth reached."
         target = self.registry.get(agent_id.lower())
         if not target:
             return f"Error: Agent '{agent_id}' not found in registry."
-        
+
         print(f"    [{self.name}] -> Asking [{target.name}]: {question[:50]}...")
-        return await target.chat(question, context=context, api_config=api_config)
+        return await target.chat(question, context=context, api_config=api_config, depth=depth + 1)
 
     async def analyze(self, ticker, horizon, data):
         raise NotImplementedError

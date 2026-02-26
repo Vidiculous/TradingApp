@@ -43,11 +43,8 @@ export const PositionsTable = ({
   const [editingTp, setEditingTp] = useState<{ symbol: string; value: number } | null>(null);
   const [lastHistoryId, setLastHistoryId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+  // Note: Notification.requestPermission() must be triggered by a user gesture,
+  // not on mount. Permission is requested via the EnableNotifications button instead.
 
   useEffect(() => {
     if (portfolio?.history && portfolio.history.length > 0) {
@@ -70,7 +67,7 @@ export const PositionsTable = ({
       }
       setLastHistoryId(latestAction.id);
     }
-  }, [portfolio?.history]);
+  }, [portfolio?.history, lastHistoryId]);
 
   const fetchPortfolio = async () => {
     try {
@@ -391,9 +388,9 @@ export const PositionsTable = ({
                 {holdingsList.map((pos) => {
                   const isCurrent = pos.symbol === activeSymbol;
                   const isShort = pos.quantity < 0;
-                  const marketPrice = isCurrent ? currentPrice : pos.average_cost; // Fallback if not current
+                  const marketPrice = (isCurrent && currentPrice != null) ? currentPrice : pos.average_cost;
 
-                  const pnlPerShare = isShort ? pos.average_cost - (marketPrice || 0) : (marketPrice || 0) - pos.average_cost;
+                  const pnlPerShare = isShort ? pos.average_cost - marketPrice : marketPrice - pos.average_cost;
                   const pnlValue = pnlPerShare * Math.abs(pos.quantity);
                   const pnlPercent = pos.average_cost !== 0 ? (pnlPerShare / pos.average_cost) * 100 : 0;
                   const currency = pos.currency || "USD";
@@ -429,7 +426,7 @@ export const PositionsTable = ({
                         {formatCurrency(pos.average_cost, currency)}
                       </td>
                       <td className="py-3 text-right font-mono text-gray-300">
-                        {formatCurrency(marketPrice || pos.average_cost, currency)}
+                        {formatCurrency(marketPrice, currency)}
                       </td>
 
                       {/* ... (SL/TP cells unchanged) ... */}

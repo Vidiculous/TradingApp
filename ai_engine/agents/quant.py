@@ -8,6 +8,7 @@ class Quant(BaseAgent):
 
     async def analyze(self, ticker, horizon, data):
         print(f"  [Quant] Analyzing {ticker} ({horizon})...")
+        self._tool_context = data
         try:
             history = data.get("history")
             if history is None or history.empty:
@@ -18,7 +19,7 @@ class Quant(BaseAgent):
             delta = history["Close"].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
+            rs = gain / loss.replace(0, float("inf"))
             history["RSI"] = 100 - (100 / (1 + rs))
 
             # MACD

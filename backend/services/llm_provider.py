@@ -38,8 +38,10 @@ class LLMProvider:
                 res = await LLMProvider._call_openai(model_id, api_key, system_prompt, normalized_content, is_json, tools)
             elif provider == "anthropic":
                 res = await LLMProvider._call_anthropic(model_id, api_key, system_prompt, normalized_content, is_json)
-            else: # Default to Gemini
+            elif provider == "gemini":
                 res = await LLMProvider._call_gemini(model_id, api_key, system_prompt, normalized_content, is_json, tools)
+            else:
+                raise ValueError(f"Unknown LLM provider: '{provider}'. Choose gemini, openai, or anthropic.")
             print(f"  [LLMProvider] {provider} call completed successfully.")
             return res
         except Exception as e:
@@ -197,7 +199,7 @@ class LLMProvider:
     async def _call_gemini(model_id, api_key, system, content, is_json, tools=None):
         import time
         t0 = time.time()
-        print(f"    [Gemini] Initializing Client (Key: {api_key[:10]}...)...")
+        print(f"    [Gemini] Initializing Client...")
         client = genai.Client(api_key=api_key)
         print(f"    [Gemini] Client ready in {time.time()-t0:.2f}s.")
         

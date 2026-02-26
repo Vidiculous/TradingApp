@@ -15,10 +15,40 @@ class Executioner(BaseAgent):
             current_price = context.get("current_price")
             squad_analysis = context.get("squad_analysis", {})
 
+            # Horizon-aware agent role weights.
+            # Reflects which agents' signals matter most for each trading style.
+            HORIZON_WEIGHTS: dict[str, dict[str, float]] = {
+                "Scalp": {
+                    "quant":          2.0,  # momentum / indicator speed
+                    "chartist":       2.0,  # price-action patterns
+                    "scout":          1.0,  # breaking news can spike price
+                    "fundamentalist": 0.3,  # irrelevant intraday
+                    "analyst":        0.3,  # irrelevant intraday
+                    "risk_officer":   1.0,
+                },
+                "Swing": {
+                    "quant":          1.5,
+                    "chartist":       1.5,
+                    "scout":          1.5,  # catalysts drive multi-day moves
+                    "fundamentalist": 0.8,
+                    "analyst":        0.8,
+                    "risk_officer":   1.0,
+                },
+                "Invest": {
+                    "quant":          0.5,  # short-term technicals less relevant
+                    "chartist":       0.5,
+                    "scout":          0.8,
+                    "fundamentalist": 2.0,  # valuation is the primary edge
+                    "analyst":        2.0,  # forensic quality of earnings matters
+                    "risk_officer":   1.0,
+                },
+            }
+            weights = HORIZON_WEIGHTS.get(horizon, {k: 1.0 for k in squad_analysis})
+
             # Build a confidence-weighted consensus header before the full squad dump.
             # This gives the LLM a quick signal-strength summary so it doesn't have to
             # weight signals itself from raw JSON.
-            signal_weights = {"BULLISH": 0, "BEARISH": 0, "NEUTRAL": 0}
+            signal_weights = {"BULLISH": 0.0, "BEARISH": 0.0, "NEUTRAL": 0.0}
             agent_summary_lines = []
             for agent_name, report in squad_analysis.items():
                 if not isinstance(report, dict):
@@ -26,12 +56,15 @@ class Executioner(BaseAgent):
                 sig = str(report.get("signal", "NEUTRAL")).upper()
                 conf = float(report.get("confidence", 0.5) or 0.5)
                 conf = max(0.0, min(1.0, conf))
+                role_weight = weights.get(agent_name, 1.0)
+                weighted_conf = conf * role_weight
                 canonical = "BULLISH" if "BULL" in sig or "BUY" in sig else (
                     "BEARISH" if "BEAR" in sig or "SELL" in sig else "NEUTRAL"
                 )
-                signal_weights[canonical] += conf
+                signal_weights[canonical] += weighted_conf
                 agent_summary_lines.append(
-                    f"  {agent_name:<16} {canonical:<8}  confidence={conf:.0%}"
+                    f"  {agent_name:<16} {canonical:<8}  confidence={conf:.0%}  "
+                    f"role_weight={role_weight:.1f}x  effective={weighted_conf:.2f}"
                 )
 
             total_weight = sum(signal_weights.values()) or 1.0
@@ -39,7 +72,11 @@ class Executioner(BaseAgent):
             consensus_strength = signal_weights[consensus_signal] / total_weight
 
             consensus_header = (
-                "SQUAD CONSENSUS SUMMARY\n"
+                f"SQUAD CONSENSUS SUMMARY  (horizon={horizon} — weights favour "
+                + ("Quant+Chartist" if horizon == "Scalp" else
+                   "Quant+Chartist+Scout" if horizon == "Swing" else
+                   "Fundamentalist+Analyst")
+                + ")\n"
                 + "\n".join(agent_summary_lines)
                 + f"\n\n  Weighted consensus: {consensus_signal}  "
                 + f"(bull={signal_weights['BULLISH']/total_weight:.0%}  "
@@ -48,7 +85,24 @@ class Executioner(BaseAgent):
                 + f"overall_strength={consensus_strength:.0%})\n"
             )
 
-            squad_text = consensus_header + "\nFULL AGENT REPORTS:\n" + json.dumps(squad_analysis, indent=2)
+            # Surface the Chronos ML signal prominently if present
+            ml_signal = (squad_analysis.get("quant") or {}).get("ml_signal")
+            if ml_signal and not ml_signal.get("skipped"):
+                ml_block = (
+                    "\nCHRONOS ML SIGNAL (Quant tool — zero-shot time series model):\n"
+                    f"  Direction  : {ml_signal.get('direction', 'N/A')}\n"
+                    f"  Probability: {ml_signal.get('prob_up', 'N/A')} up / "
+                    f"{round(1 - float(ml_signal.get('prob_up', 0.5)), 3)} down\n"
+                    f"  Confidence : {ml_signal.get('confidence', 'N/A')}\n"
+                    f"  Median tgt : {ml_signal.get('median_forecast', 'N/A')}\n"
+                    f"  Q10–Q90    : {ml_signal.get('range_q10_q90', 'N/A')}\n"
+                    f"  Horizon    : {ml_signal.get('forecast_steps', 'N/A')} bars\n"
+                    "  Note: Pattern/momentum signal only — no news or macro awareness.\n"
+                )
+            else:
+                ml_block = "\nCHRONOS ML SIGNAL: Not available for this analysis.\n"
+
+            squad_text = consensus_header + ml_block + "\nFULL AGENT REPORTS:\n" + json.dumps(squad_analysis, indent=2)
 
             portfolio_context = context.get("portfolio", {})
             position = portfolio_context.get("position")

@@ -78,6 +78,62 @@ body {
   backdrop-filter: blur(8px);
 }
 
+/* Light Mode Overrides */
+html.light {
+  --background: #f4f4f5;
+  --foreground: #09090b;
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.60);
+  --glass-highlight: rgba(255, 255, 255, 0.80);
+}
+html.light body {
+  background-image: none;
+  background-color: #f4f4f5;
+}
+html.light .glass-panel {
+  background: rgba(255, 255, 255, 0.70);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.06);
+}
+html.light .glass-panel:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+}
+html.light .glass-card-subtle {
+  background: rgba(255, 255, 255, 0.50);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+/* Flip Tailwind opacity utilities used throughout */
+html.light .bg-white\/5  { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; }
+html.light .bg-black\/20 { background-color: rgba(0,0,0,0.05) !important; }
+html.light .bg-black\/40 { background-color: rgba(0,0,0,0.08) !important; }
+html.light .border-white\/5  { border-color: rgba(0,0,0,0.05) !important; }
+html.light .border-white\/10 { border-color: rgba(0,0,0,0.08) !important; }
+html.light .text-white    { color: #09090b !important; }
+html.light .text-gray-400 { color: #52525b !important; }
+html.light .text-gray-500 { color: #71717a !important; }
+/* Hardcoded hex overrides */
+html.light .bg-\[\#09090b\] { background-color: #f4f4f5 !important; }
+html.light .bg-\[\#18181b\]\/80 { background-color: rgba(240,253,244,0.75) !important; }
+/* Header gradient: soft mint tint → translucent white */
+html.light .from-emerald-950\/60 { --tw-gradient-from: rgba(209,250,229,0.70) !important; }
+html.light .via-\[\#18181b\]\/80 { --tw-gradient-via: rgba(255,255,255,0.65) !important; }
+html.light .to-\[\#18181b\]\/80 { --tw-gradient-to: rgba(255,255,255,0.65) !important; }
+/* GlobalContextBar fade edges: replace dark #09090b via with the light background */
+html.light .via-\[\#09090b\]\/50 { --tw-gradient-via: rgba(244,244,245,0.50) !important; }
+/* Gradient text: "MARKET" uses from-white which is invisible on light bg */
+html.light .from-white { --tw-gradient-from: #1e3a2f !important; }
+html.light .bg-\[\#18181b\]\/95 { background-color: rgba(244,244,245,0.95) !important; }
+html.light .bg-\[\#000000\] { background-color: #ffffff !important; }
+html.light .bg-\[\#0a0a0a\] { background-color: #f4f4f5 !important; }
+html.light .from-\[\#09090b\] { --tw-gradient-from: #f4f4f5 !important; }
+/* Input/border fixes */
+html.light .border-white\/20 { border-color: rgba(0,0,0,0.15) !important; }
+/* Text hierarchy fix */
+html.light .text-gray-600 { color: #3f3f46 !important; }
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -95,6 +151,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+html.light ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
 /* PERFORMANCE MODE: Removed global override to allow UI animations */
 

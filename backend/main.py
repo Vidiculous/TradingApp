@@ -45,6 +45,7 @@ from services.news import get_multi_source_ticker_news, get_ticker_news
 from services.paper_trading import (
     clear_history,
     execute_order,
+    get_analytics,
     remove_history_item,
     remove_position,
     reset_portfolio,
@@ -52,6 +53,8 @@ from services.paper_trading import (
     sync_portfolio_stops,
     update_stop_loss,
 )
+from services.screener import run_screener
+from services.document_service import delete_document, get_documents, upload_document
 from services.sector_data import get_sector_correlation
 from services.watchlist import add_to_watchlist, get_watchlist, remove_from_watchlist
 
@@ -140,7 +143,7 @@ def toggle_demo_mode():
 
 
 # Configure CORS — restrict to known frontend origins
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001").split(",")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001").split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -362,6 +365,25 @@ def delete_history_item(item_id: str):
 @app.post("/api/paper/cash", response_model=PortfolioResponse)
 def update_cash(update: CashUpdate):
     return set_cash(update.amount)
+
+
+@app.get("/api/paper/analytics")
+def paper_analytics():
+    """Portfolio analytics: equity curve, win rate, profit factor, P&L summary."""
+    return get_analytics()
+
+
+@app.get("/api/market/screener")
+async def market_screener(market: str = "SE", limit: int = 15):
+    """
+    Technical signal screener for a market's index components.
+    Returns top stocks ranked by composite interest score.
+    Markets: US, SE (Sweden), EU (Europe)
+    """
+    try:
+        return await run_screener(market=market, limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/market/orderbook/{symbol}")

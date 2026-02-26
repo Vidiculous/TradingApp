@@ -18,22 +18,28 @@ export const LLMSettingsModal = ({ isOpen, onClose }: LLMSettingsModalProps) => 
 
     useEffect(() => {
         setMounted(true);
-        // Load from localStorage
-        const savedProvider = localStorage.getItem("trading_llm_provider");
-        const savedModel = localStorage.getItem("trading_llm_model");
-        const savedKey = localStorage.getItem("trading_llm_api_key");
-
-        if (savedProvider) setProvider(savedProvider);
-        if (savedModel) setModel(savedModel);
-        if (savedKey) setApiKey(savedKey);
+        try {
+            const savedProvider = localStorage.getItem("trading_llm_provider");
+            const savedModel = localStorage.getItem("trading_llm_model");
+            const savedKey = localStorage.getItem("trading_llm_api_key");
+            if (savedProvider) setProvider(savedProvider);
+            if (savedModel) setModel(savedModel);
+            if (savedKey) setApiKey(savedKey);
+        } catch {
+            // localStorage unavailable — use defaults
+        }
 
         return () => setMounted(false);
     }, [isOpen]);
 
     const handleSave = () => {
-        localStorage.setItem("trading_llm_provider", provider);
-        localStorage.setItem("trading_llm_model", model);
-        localStorage.setItem("trading_llm_api_key", apiKey);
+        try {
+            localStorage.setItem("trading_llm_provider", provider);
+            localStorage.setItem("trading_llm_model", model);
+            localStorage.setItem("trading_llm_api_key", apiKey);
+        } catch {
+            // localStorage unavailable (private browsing / quota exceeded) — settings not persisted
+        }
         onClose();
     };
 

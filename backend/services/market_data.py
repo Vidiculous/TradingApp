@@ -84,7 +84,7 @@ def get_ticker_data(
                     delta = hist["Close"].diff()
                     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
                     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                    rs = gain / loss
+                    rs = gain / loss.replace(0, float("inf"))
                     hist["RSI"] = 100 - (100 / (1 + rs))
 
                     # Calculate MACD (12, 26, 9)
@@ -114,12 +114,12 @@ def get_ticker_data(
                     )
 
             # Calculate change
-            current_price = info.get("currentPrice", 0.0)
-            if not current_price and not hist.empty:
+            current_price = info.get("currentPrice", None)
+            if current_price is None and not hist.empty:
                 current_price = hist["Close"].iloc[-1]
 
-            previous_close = info.get("previousClose", 0.0)
-            if not previous_close and len(hist) > 1:
+            previous_close = info.get("previousClose", None)
+            if previous_close is None and len(hist) > 1:
                 previous_close = hist["Close"].iloc[-2]
 
             change = current_price - previous_close
@@ -366,7 +366,7 @@ def get_top_gainers(market: str = "US", limit: int = 5) -> list[dict[str, Any]]:
                 try:
                     ticker = yf.Ticker(symbols[0])
                     name = ticker.info.get("shortName", symbols[0])
-                except:
+                except Exception:
                     name = symbols[0]
 
                 results.append(
@@ -397,7 +397,7 @@ def get_top_gainers(market: str = "US", limit: int = 5) -> list[dict[str, Any]]:
                         try:
                             ticker = yf.Ticker(symbol)
                             name = ticker.info.get("shortName", symbol)
-                        except:
+                        except Exception:
                             name = symbol
 
                         results.append(

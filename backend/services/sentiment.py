@@ -19,8 +19,18 @@ logger = logging.getLogger(__name__)
 _SENTIMENT_CACHE: Dict[str, Dict[str, Any]] = {}
 CACHE_SIZE_LIMIT = 1000
 
-# Configure Gemini
-api_key = os.getenv("GEMINI_API_KEY")
+# LLM provider config — matches how agents resolve their provider
+_LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+_LLM_MODEL = os.getenv(
+    "LLM_MODEL",
+    os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+)
+_API_KEY_MAP = {
+    "gemini": os.getenv("GEMINI_API_KEY", ""),
+    "openai": os.getenv("OPENAI_API_KEY", ""),
+    "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
+}
+api_key = _API_KEY_MAP.get(_LLM_PROVIDER, "")
 
 # Keyword lists for fallback
 BULLISH_KEYWORDS = [
@@ -70,15 +80,15 @@ def analyze_sentiment(headline: str, summary: str = "") -> str:
     Returns just the sentiment string (BULLISH, BEARISH, NEUTRAL).
     """
     result = analyze_sentiment_keyword(headline, summary)
-    return result["sentiment"].lower()
+    return result["sentiment"]
 
 
 async def call_gemini_flash_batch(headlines: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """
-    Call Gemini Flash to analyze a batch of headlines.
+    Call the configured LLM provider to analyze a batch of headlines.
     """
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not set")
+        raise ValueError(f"API key for provider '{_LLM_PROVIDER}' not set")
 
     system = """
     Analyze the sentiment of the following financial news headlines.
@@ -96,8 +106,8 @@ async def call_gemini_flash_batch(headlines: List[Dict[str, str]]) -> List[Dict[
     user_content = json.dumps(headlines, indent=2)
 
     response_text = await LLMProvider.call(
-        provider="gemini",
-        model_id="gemini-3-flash-preview",
+        provider=_LLM_PROVIDER,
+        model_id=_LLM_MODEL,
         api_key=api_key,
         system_prompt=system,
         user_content=user_content,

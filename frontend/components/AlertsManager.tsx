@@ -107,17 +107,28 @@ export const AlertsManager = ({ symbol, currentPrice }: AlertsManagerProps) => {
         const toast = document.createElement("div");
         toast.className =
           "fixed top-6 right-6 bg-blue-600 text-white px-6 py-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] animate-in slide-in-from-right duration-300 font-bold border border-white/20 backdrop-blur-md";
-        toast.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-white/20 rounded-lg">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-                        </div>
-                        <div>
-                            <div class="text-[10px] opacity-70 uppercase tracking-widest font-black">Market Alert</div>
-                            <div class="text-sm">${message}</div>
-                        </div>
-                    </div>
-                `;
+
+        const flex = document.createElement("div");
+        flex.className = "flex items-center gap-3";
+
+        const iconWrap = document.createElement("div");
+        iconWrap.className = "p-2 bg-white/20 rounded-lg";
+        iconWrap.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+
+        const textWrap = document.createElement("div");
+        const label = document.createElement("div");
+        label.className = "text-[10px] opacity-70 uppercase tracking-widest font-black";
+        label.textContent = "Market Alert";
+        const body = document.createElement("div");
+        body.className = "text-sm";
+        body.textContent = message;
+        textWrap.appendChild(label);
+        textWrap.appendChild(body);
+
+        flex.appendChild(iconWrap);
+        flex.appendChild(textWrap);
+        toast.appendChild(flex);
         document.body.appendChild(toast);
         setTimeout(() => {
           toast.classList.add("animate-out", "fade-out", "slide-out-to-right");

@@ -1,5 +1,12 @@
 import { API_BASE_URL } from "./config";
 
+/** Injected by AuthContext (or layout) so 401 redirects use Next.js router */
+let _redirectToLogin: (() => void) | null = null;
+
+export function setRedirectFn(fn: () => void): void {
+  _redirectToLogin = fn;
+}
+
 /**
  * Centralized API fetch wrapper.
  * Automatically includes credentials for cookie-based auth.
@@ -20,7 +27,11 @@ export async function apiFetch(
 
   // If unauthorized, redirect to login
   if (res.status === 401 && typeof window !== "undefined") {
-    window.location.href = "/login";
+    if (_redirectToLogin) {
+      _redirectToLogin();
+    } else {
+      window.location.href = "/login";
+    }
     throw new Error("Session expired. Please log in again.");
   }
 

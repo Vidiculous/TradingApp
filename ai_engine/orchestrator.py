@@ -66,6 +66,7 @@ from ai_engine.tools.insider_tools import fetch_insider_activity, FETCH_INSIDER_
 from ai_engine.tools.earnings_tools import get_earnings_forecast, GET_EARNINGS_FORECAST_SCHEMA
 from ai_engine.tools.macro_tools import get_macro_events, GET_MACRO_EVENTS_SCHEMA
 from ai_engine.tools.social_tools import get_social_sentiment, GET_SOCIAL_SENTIMENT_SCHEMA
+from ai_engine.tools.ml_tools import predict_price_direction, PREDICT_PRICE_DIRECTION_SCHEMA
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -119,10 +120,13 @@ class Orchestrator:
         self.tool_manager.register_tool("get_earnings_forecast", get_earnings_forecast, GET_EARNINGS_FORECAST_SCHEMA, ttl=86400)
         self.tool_manager.register_tool("get_macro_events",      get_macro_events,      GET_MACRO_EVENTS_SCHEMA,      ttl=43200)
         self.tool_manager.register_tool("get_social_sentiment",  get_social_sentiment,  GET_SOCIAL_SENTIMENT_SCHEMA,  ttl=1800)
+        self.tool_manager.register_tool(
+            "predict_price_direction", predict_price_direction, PREDICT_PRICE_DIRECTION_SCHEMA, ttl=3600
+        )
 
         # Give each agent a view of only its relevant tools
         # Chartist, Executioner, and Risk Officer do pure reasoning — no tools
-        self.quant.tool_manager          = self.tool_manager.view("get_indicators")
+        self.quant.tool_manager          = self.tool_manager.view("get_indicators", "predict_price_direction")
         self.scout.tool_manager          = self.tool_manager.view("get_social_sentiment", "get_macro_events")
         self.fundamentalist.tool_manager = self.tool_manager.view("fetch_ticker_stats", "get_earnings_forecast", "get_peer_group")
         self.analyst.tool_manager        = self.tool_manager.view("fetch_financial_docs", "fetch_insider_activity")
@@ -336,6 +340,7 @@ class Orchestrator:
             # Map results back
             # Map results back and Normalize
             def normalize(res):
+                if res is None: return {"summary": "None", "signal": "NEUTRAL", "confidence": 0.0}
                 if not isinstance(res, dict): return {"summary": str(res)}
                 
                 # Signal logic

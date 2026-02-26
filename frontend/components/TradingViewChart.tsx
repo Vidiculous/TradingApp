@@ -7,7 +7,8 @@ import type {
   SeriesOptionsCommon,
 } from "lightweight-charts";
 import { Info } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface ChartProps {
   data: any[];
@@ -38,6 +39,30 @@ export const TradingViewChart = ({
   showMarkers = false,
   history = [],
 }: ChartProps) => {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+
+  const palette = useMemo(() => ({
+    candleUp:      isLight ? "#059669" : "#10b981",
+    candleDown:    isLight ? "#dc2626" : "#ef4444",
+    lineColor:     isLight ? "#2563eb" : "#3b82f6",
+    areaTop:       isLight ? "rgba(37,99,235,0.3)"  : "rgba(59,130,246,0.4)",
+    areaBottom:    isLight ? "rgba(37,99,235,0.0)"  : "rgba(59,130,246,0.0)",
+    textColor:     isLight ? "#374151" : "#d1d5db",
+    subTextColor:  isLight ? "#6b7280" : "#9ca3af",
+    gridColor:     isLight ? "rgba(0,0,0,0.08)"     : "rgba(255,255,255,0.05)",
+    borderColor:   isLight ? "rgba(0,0,0,0.12)"     : "rgba(255,255,255,0.1)",
+    watermark:     isLight ? "rgba(0,0,0,0.05)"     : "rgba(255,255,255,0.05)",
+    rsiColor:      isLight ? "#7c3aed" : "#a855f7",
+    macdFast:      isLight ? "#0891b2" : "#00E5FF",
+    macdSignal:    isLight ? "#ca8a04" : "#FFEA00",
+    macdHist:      "#26a69a",
+    zeroLine:      isLight ? "rgba(0,0,0,0.3)"      : "rgba(255,255,255,0.5)",
+    vwapColor:     "#2962FF",
+    ema9Color:     isLight ? "#d97706" : "#FDD835",
+    ema21Color:    isLight ? "#ea580c" : "#FB8C00",
+  }), [isLight]);
+
   const mainChartContainerRef = useRef<HTMLDivElement>(null);
   const indicatorChartContainerRef = useRef<HTMLDivElement>(null);
   const mainChartRef = useRef<IChartApi | null>(null);
@@ -118,30 +143,30 @@ export const TradingViewChart = ({
       mainChart = createChart(mainChartContainerRef.current!, {
         layout: {
           background: { type: ColorType.Solid, color: "transparent" },
-          textColor: colors?.textColor || "#d1d5db",
+          textColor: colors?.textColor || palette.textColor,
         },
         width: mainChartContainerRef.current!.clientWidth,
         height: activeIndicator === "NONE" ? 400 : 300,
         grid: {
-          vertLines: { color: "rgba(255, 255, 255, 0.05)" },
-          horzLines: { color: "rgba(255, 255, 255, 0.05)" },
+          vertLines: { color: palette.gridColor },
+          horzLines: { color: palette.gridColor },
         },
         crosshair: {
-          mode: isDrawing ? 1 : 0, // Crosshair mode when drawing
+          mode: isDrawing ? 1 : 0,
         },
         timeScale: {
           timeVisible: true,
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: palette.borderColor,
         },
         rightPriceScale: {
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          borderColor: palette.borderColor,
         },
         watermark: {
           visible: true,
           fontSize: 64,
           horzAlign: "center",
           vertAlign: "center",
-          color: "rgba(255, 255, 255, 0.05)",
+          color: palette.watermark,
           text: `${symbol} ${interval}`,
         },
       } as any);
@@ -152,22 +177,22 @@ export const TradingViewChart = ({
       let mainSeries: any;
       if (chartType === "candles") {
         mainSeries = mainChart.addSeries(CandlestickSeries, {
-          upColor: "#10b981",
-          downColor: "#ef4444",
+          upColor: palette.candleUp,
+          downColor: palette.candleDown,
           borderVisible: false,
-          wickUpColor: "#10b981",
-          wickDownColor: "#ef4444",
+          wickUpColor: palette.candleUp,
+          wickDownColor: palette.candleDown,
         });
       } else if (chartType === "line") {
         mainSeries = mainChart.addSeries(LineSeries, {
-          color: "#3b82f6",
+          color: palette.lineColor,
           lineWidth: 2,
         });
       } else {
         mainSeries = mainChart.addSeries(AreaSeries, {
-          topColor: "rgba(59, 130, 246, 0.4)",
-          bottomColor: "rgba(59, 130, 246, 0.0)",
-          lineColor: "#3b82f6",
+          topColor: palette.areaTop,
+          bottomColor: palette.areaBottom,
+          lineColor: palette.lineColor,
         });
       }
       candleSeriesRef.current = mainSeries;
@@ -215,7 +240,7 @@ export const TradingViewChart = ({
       // --- Overlays ---
       if (activeOverlays.has("VWAP")) {
         const vwapSeries = mainChart.addSeries(LineSeries, {
-          color: "#2962FF",
+          color: palette.vwapColor,
           lineWidth: 2,
           crosshairMarkerVisible: false,
           lastValueVisible: false,
@@ -230,7 +255,7 @@ export const TradingViewChart = ({
 
       if (activeOverlays.has("EMA9")) {
         const ema9Series = mainChart.addSeries(LineSeries, {
-          color: "#FDD835",
+          color: palette.ema9Color,
           lineWidth: 1,
           crosshairMarkerVisible: false,
           lastValueVisible: false,
@@ -248,7 +273,7 @@ export const TradingViewChart = ({
 
       if (activeOverlays.has("EMA21")) {
         const ema21Series = mainChart.addSeries(LineSeries, {
-          color: "#FB8C00",
+          color: palette.ema21Color,
           lineWidth: 1,
           crosshairMarkerVisible: false,
           lastValueVisible: false,
@@ -269,19 +294,19 @@ export const TradingViewChart = ({
         indicatorChart = createChart(indicatorChartContainerRef.current, {
           layout: {
             background: { type: ColorType.Solid, color: "transparent" },
-            textColor: "#9ca3af",
+            textColor: palette.subTextColor,
           },
           width: indicatorChartContainerRef.current.clientWidth,
           height: 100,
           grid: {
-            vertLines: { color: "rgba(255, 255, 255, 0.05)" },
-            horzLines: { color: "rgba(255, 255, 255, 0.05)" },
+            vertLines: { color: palette.gridColor },
+            horzLines: { color: palette.gridColor },
           },
           timeScale: {
-            visible: false, // Hide time scale on sync
+            visible: false,
           },
           rightPriceScale: {
-            borderColor: "rgba(255, 255, 255, 0.1)",
+            borderColor: palette.borderColor,
           },
         } as any);
 
@@ -289,7 +314,7 @@ export const TradingViewChart = ({
 
         if (activeIndicator === "RSI") {
           const rsiSeries = indicatorChart.addSeries(LineSeries, {
-            color: "#a855f7", // Purple
+            color: palette.rsiColor,
             lineWidth: 2,
             autoscaleInfoProvider: () => ({
               priceRange: {
@@ -309,17 +334,17 @@ export const TradingViewChart = ({
         }
 
         if (activeIndicator === "MACD") {
-          const macdSeries = indicatorChart.addSeries(LineSeries, { color: "#00E5FF", lineWidth: 2 }); // Cyan (Fast)
+          const macdSeries = indicatorChart.addSeries(LineSeries, { color: palette.macdFast, lineWidth: 2 });
           const signalSeries = indicatorChart.addSeries(LineSeries, {
-            color: "#FFEA00",
+            color: palette.macdSignal,
             lineWidth: 2,
-          }); // Yellow (Slow)
-          const histSeries = indicatorChart.addSeries(HistogramSeries, { color: "#26a69a" });
+          });
+          const histSeries = indicatorChart.addSeries(HistogramSeries, { color: palette.macdHist });
 
           // Add Zero Line
           macdSeries.createPriceLine({
             price: 0,
-            color: "rgba(255, 255, 255, 0.5)", // Increased opacity for visibility
+            color: palette.zeroLine,
             lineWidth: 1,
             lineStyle: 2, // Dashed
             axisLabelVisible: false,
@@ -374,7 +399,7 @@ export const TradingViewChart = ({
       candleSeriesRef.current = null; // Clear ref on cleanup
       setIsReady(false);
     };
-  }, [symbol, interval, chartType, activeIndicator, activeOverlays, data, colors, isDrawing, drawings]);
+  }, [symbol, interval, chartType, activeIndicator, activeOverlays, data, colors, isDrawing, drawings, palette]);
 
   // --- Trade Markers Effect ---
   useEffect(() => {

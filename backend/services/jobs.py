@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 
@@ -8,6 +8,7 @@ class JobManager:
         self.jobs: dict[str, dict[str, Any]] = {}
 
     def create_job(self) -> str:
+        self.cleanup_old_jobs()
         job_id = str(uuid.uuid4())
         self.jobs[job_id] = {
             "id": job_id,
@@ -33,8 +34,14 @@ class JobManager:
         return self.jobs.get(job_id)
 
     def cleanup_old_jobs(self, max_age_seconds=3600):
-        # Implementation skipped for simple version
-        pass
+        cutoff = datetime.now() - timedelta(seconds=max_age_seconds)
+        expired = [
+            job_id
+            for job_id, job in self.jobs.items()
+            if datetime.fromisoformat(job["created_at"]) < cutoff
+        ]
+        for job_id in expired:
+            del self.jobs[job_id]
 
 
 # Global instance

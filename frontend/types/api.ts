@@ -172,6 +172,35 @@ export interface OrderRequest {
   tp_config?: Record<string, unknown> | null;
 }
 
+// === Portfolio Analytics Types ===
+
+export interface EquityPoint {
+  date: string;
+  cumulative_pnl: number;
+}
+
+export interface PortfolioAnalytics {
+  equity_curve: EquityPoint[];
+  total_realized_pnl: number;
+  trade_count: number;
+  win_rate: number;
+  avg_win: number;
+  avg_loss: number;
+  profit_factor: number;
+}
+
+// === Market Screener Types ===
+
+export interface ScreenerResult {
+  symbol: string;
+  name: string;
+  price: number;
+  change_percent: number;
+  rsi: number;
+  score: number;
+  signals: string[];
+}
+
 // === Agent Chat Types ===
 
 export interface AgentInfo {

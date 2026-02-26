@@ -1,11 +1,13 @@
 "use client";
 
-import { LayoutDashboard, LayoutGrid } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Moon, Sun } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import type { AIAnalysis, TickerData } from "@/types/api";
+import { useTheme } from "@/contexts/ThemeContext";
 import { AgentAnalysisView } from "@/components/AgentAnalysisView";
+import { AlertsCenter } from "@/components/AlertsCenter";
 import { ChartSection } from "@/components/ChartSection";
 import { DashboardRightPanel } from "@/components/DashboardRightPanel";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -22,6 +24,7 @@ import { TickerHeader } from "@/components/TickerHeader";
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const [tickerData, setTickerData] = useState<TickerData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,6 +88,10 @@ function DashboardContent() {
 
       while (attempts < maxAttempts) {
         const statusRes = await fetch(`/api/agent/status/${jobId}`);
+        if (!statusRes.ok) {
+          const errData = await statusRes.json().catch(() => ({}));
+          throw new Error(errData.detail || `Status check failed (${statusRes.status})`);
+        }
         const statusData = await statusRes.json();
 
         if (statusData.status === "completed") {
@@ -105,10 +112,7 @@ function DashboardContent() {
 
       throw new Error("Analysis timed out");
     } catch (e: any) {
-      console.error(e);
-      // Show error in a toast or alert - for now verify parsing happens correctly
-      // We might want to set a specific error state for the UI, but console is fine for debugging
-      console.error("Analysis Failed:", e.message);
+      setError(e.message || "Analysis failed");
     } finally {
       setAiLoading(false);
     }
@@ -240,30 +244,18 @@ function DashboardContent() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#09090b]">
       <GlobalContextBar />
-      <div className="p-4 pb-20 md:p-6">
-        <div className="pointer-events-none fixed inset-0 z-0">
-          <div className="absolute left-[-10%] top-[-10%] h-[50%] w-[50%] rounded-full bg-emerald-500/10 blur-[150px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] h-[50%] w-[50%] rounded-full bg-emerald-500/5 blur-[150px]" />
-          <div className="absolute left-[20%] top-[20%] h-[30%] w-[30%] rounded-full bg-emerald-500/5 blur-[120px]" />
-        </div>
-
-        <div className="relative w-full space-y-6 px-4 md:px-8">
-          {/* Main Navigation Bar - Pixel-Perfect Sync with Dashboard Grid */}
-          <header className="sticky top-0 z-[1000] flex items-center justify-between border-b border-white/5 bg-[#09090b] py-3 backdrop-blur-xl">
+      <header className="sticky top-2 z-[1000] mx-3 mt-2 flex items-center justify-between rounded-2xl border border-emerald-500/10 bg-gradient-to-r from-emerald-950/60 via-[#18181b]/80 to-[#18181b]/80 px-6 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-xl md:mx-6 md:px-8">
             {/* Left Header Area: Logo */}
             <div className="flex flex-1 items-center gap-4">
               <div className="glass-panel rounded-2xl border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 p-2 shadow-lg shadow-emerald-500/5">
                 <LayoutDashboard className="text-emerald-400" size={20} />
               </div>
               <div className="flex flex-col justify-center">
-                <button onClick={handleBackToLanding} className="group block text-left">
+                <a href="/" onClick={(e) => { e.preventDefault(); handleBackToLanding(); }} className="group block text-left">
                   <h1 className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-lg font-black tracking-tighter text-transparent transition-all duration-300 group-hover:from-emerald-400 group-hover:to-white">
-                    MARKET<span className="text-emerald-500">DASH</span>{" "}
-                    <span className="ml-1 rounded border border-gray-800 px-1 align-top font-mono text-[9px] text-gray-500 opacity-50">
-                      PRO
-                    </span>
+                    MARKET<span className="text-emerald-500">DASH</span>
                   </h1>
-                </button>
+                </a>
               </div>
             </div>
 
@@ -279,6 +271,14 @@ function DashboardContent() {
 
             {/* Right Header Area: View Switcher */}
             <div className="flex flex-1 items-center justify-end gap-4">
+              <AlertsCenter />
+              <button
+                onClick={toggleTheme}
+                className="rounded-lg border border-white/5 bg-white/5 p-1.5 text-gray-500 transition-all hover:text-white"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
+              </button>
               <div className="flex rounded-xl border border-white/5 bg-white/5 p-1" role="tablist" aria-label="Dashboard view mode">
                 <button
                   onClick={() => setViewMode("standard")}
@@ -300,8 +300,16 @@ function DashboardContent() {
                 </button>
               </div>
             </div>
-          </header>
+      </header>
 
+      <div className="p-4 pb-20 md:p-6">
+        <div className="pointer-events-none fixed inset-0 z-0">
+          <div className="absolute left-[-10%] top-[-10%] h-[50%] w-[50%] rounded-full bg-emerald-500/10 blur-[150px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] h-[50%] w-[50%] rounded-full bg-emerald-500/5 blur-[150px]" />
+          <div className="absolute left-[20%] top-[20%] h-[30%] w-[30%] rounded-full bg-emerald-500/5 blur-[120px]" />
+        </div>
+
+        <div className="relative w-full space-y-6 px-4 md:px-8">
           {/* Sub-header Context (Recent Searches / Mobile Search) */}
           <div className="relative z-40 flex flex-col gap-4">
             <div className="lg:hidden">

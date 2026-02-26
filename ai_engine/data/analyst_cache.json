@@ -1,21 +1,94 @@
 {
+  "VOLV-B.ST_news_fallback_Swing": {
+    "signal": "NEUTRAL",
+    "confidence": 0.65,
+    "health_status": "STABLE",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "AB Volvo (VOLV-B) is successfully pivoting toward a service-centric business model, which acts as a qualitative buffer against the inherent cyclicality of heavy truck sales.",
+      "The company maintains a 'dual-track' technology strategy (Battery Electric and Hydrogen/Fuel Cells), positioning it as a structural leader in the decarbonization of logistics.",
+      "Management commentary in recent periods has shifted from 'supply chain crisis management' to 'demand normalization,' suggesting a transition into a more competitive, price-sensitive market environment."
+    ],
+    "red_flags": [
+      "Cyclical risk: Signs of cooling industrial activity in Europe and North America could lead to a rapid contraction in the order backlog.",
+      "High R&D intensity: The transition to zero-emission vehicles requires sustained high CAPEX, which may compress margins if adoption rates lag behind regulatory mandates.",
+      "No recent insider buying detected in the latest filings, suggesting a 'wait-and-see' approach from top brass regarding the current valuation."
+    ],
+    "reasoning": "The narrative for AB Volvo is one of structural strength meeting cyclical headwinds. While the company possesses a wide moat through its massive global service network and brand equity, the 'True Story' revealed in recent reporting is a transition from a period of easy growth (post-pandemic backlog) to a period of execution risk. The forensic health is stable, but the lack of aggressive insider buying and the cooling macro-industrial sentiment warrant a neutral stance for a swing horizon.",
+    "conclusion": "Bullish on the long-term structural moat and service-revenue transition, but Neutral on the immediate swing potential due to cyclical cooling and high R&D requirements.",
+    "_expires_at": 1771872052.6504505
+  },
   "SAAB-B.ST_news_fallback_Swing": {
     "signal": "BULLISH",
-    "confidence": 0.85,
+    "confidence": 0.8,
     "health_status": "STRONG",
     "moat_rating": "WIDE",
     "key_qualitative_findings": [
-      "The narrative has shifted from 'cost-optimization' to 'rapid capacity expansion' to meet unprecedented demand from NATO and European allies.",
-      "Saab's unique value proposition\u2014providing high-tech defense solutions (Gripen, NLAW, GlobalEye) at a lower cost-of-ownership than US peers\u2014is gaining traction in a budget-conscious but threat-heavy environment.",
-      "Sweden's formal entry into NATO acts as a structural catalyst, integrating Saab more deeply into the alliance's long-term procurement cycles."
+      "Management is pivoting the narrative from 'stability' to 'aggressive growth,' evidenced by the 'Record order bookings' headline in the 2025 year-end report.",
+      "The company is successfully capitalizing on the structural shift in European defense spending and Sweden's NATO integration.",
+      "The 'Building for growth' commentary suggests a transition into a high-utilization phase for manufacturing facilities, which typically precedes margin expansion in the defense sector."
     ],
     "red_flags": [
-      "Execution Risk: The massive order backlog creates pressure on supply chains and skilled labor availability, which could lead to delivery delays.",
-      "Fixed-Price Contracts: Potential margin compression if inflationary pressures on raw materials (specialty steel, electronics) exceed the escalation clauses in long-term defense contracts.",
-      "Limited recent insider buying activity suggests management may view the current valuation as 'fair' rather than 'undervalued' following the recent run-up."
+      "Execution Risk: 'Building for growth' often involves significant CapEx and hiring, which can lead to short-term margin compression or delivery bottlenecks.",
+      "Supply Chain Strain: Record orders in the defense industry currently face global competition for raw materials and specialized components."
     ],
-    "reasoning": "The 'True Story' for Saab is the transition from a niche regional player to a central pillar of European security. While the financials show growth, the forensic narrative reveals a company fundamentally re-tooling its entire business model for a 'high-intensity' geopolitical era. The moat is widened by high switching costs and national security dependencies, though the primary risk is now operational (can they build it fast enough?) rather than demand-based.",
-    "conclusion": "Bullish on the structural tailwinds and strategic moat; the narrative supports a 'buy-on-dips' strategy for a swing horizon as backlog conversion accelerates.",
-    "_expires_at": 1771862223.4422855
+    "reasoning": "The narrative has shifted from a regional defense player to a critical NATO supplier. The 'Record order bookings' signal is the strongest qualitative indicator of future revenue certainty. While the financial math (PE/ROE) is currently missing from the data set, the forensic 'True Story' is one of a company with a massive backlog and a widening geopolitical moat. The primary risk is no longer 'demand,' but 'delivery'\u2014whether Saab can scale production fast enough to meet this unprecedented surge.",
+    "conclusion": "Bullish on the structural demand tailwinds and strategic moat; the qualitative health is at a multi-decade high due to the record backlog.",
+    "_expires_at": 1772101847.7664807
+  },
+  "BOL.ST_news_fallback_Swing": {
+    "signal": "NEUTRAL",
+    "confidence": 0.1,
+    "health_status": "STABLE",
+    "moat_rating": "NONE",
+    "key_qualitative_findings": [
+      "Forensic analysis is severely limited by the lack of company-specific financial filings or transcripts for BOL.ST.",
+      "Search tool results were non-responsive, returning generic IR links for US mega-cap tech companies (Apple, Amazon, NVIDIA) rather than the Swedish mining entity.",
+      "Institutional ownership data shows negligible activity, with only one minor holder reported, offering no insight into institutional sentiment."
+    ],
+    "red_flags": [
+      "Complete absence of qualitative disclosure or recent news for the specific ticker.",
+      "Data gap prevents the assessment of management tone, executive turnover, or litigation risks."
+    ],
+    "reasoning": "The narrative analysis is currently impossible to perform with high conviction because the retrieved documents do not pertain to Boliden AB (BOL.ST). The 'True Story' cannot be extracted from irrelevant data. While the lack of news could imply a quiet period, the failure to retrieve specific 10-K or equivalent Swedish filings (\u00c5rsredovisning) creates a total information vacuum regarding the company's structural health.",
+    "conclusion": "Neutral due to a total lack of forensic evidence; qualitative health cannot be verified.",
+    "_expires_at": 1772104089.3025706
+  },
+  "ABB.ST_news_fallback_Swing": {
+    "signal": "NEUTRAL",
+    "confidence": 0.75,
+    "health_status": "STABLE",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "The transition to CEO Morten Wierod (August 2024) marks a shift from the 'restructuring' phase under Rosengren to an 'execution and growth' phase, suggesting management stability.",
+      "The 2024 Integrated Report emphasizes a pivot toward 'resource-efficient' electrification, positioning the company to capture secular tailwinds in grid modernization and EV infrastructure.",
+      "Management tone in recent communications remains focused on 'operational excellence' and margin resilience, despite a cooling global industrial environment."
+    ],
+    "red_flags": [
+      "Robotics & Discrete Automation segment is showing signs of cyclical fatigue, particularly in the China market, which could drag on overall group performance.",
+      "The shift to 'Integrated Reporting' can sometimes obscure segment-specific underperformance by blending financial and ESG metrics.",
+      "High reliance on large-scale capital projects makes the company sensitive to prolonged high-interest-rate environments."
+    ],
+    "reasoning": "ABB possesses a wide moat through its deeply embedded electrification and automation technologies, which have high switching costs. The narrative is currently dominated by the successful CEO transition and a record order backlog in Electrification. However, for a swing horizon, the 'True Story' is a tale of two halves: the Electrification business is booming, while the Robotics division faces a significant slowdown in China and the automotive sector. The forensic outlook is neutral because the 'Integrated Report' narrative attempts to smooth over these cyclical cracks with long-term sustainability goals.",
+    "conclusion": "Bullish on the structural moat and electrification tailwinds, but Neutral for a swing trade due to cyclical headwinds in the automation segment and China exposure.",
+    "_expires_at": 1772104201.8620427
+  },
+  "SAAB-B.ST_news_fallback_Scalp": {
+    "signal": "BULLISH",
+    "confidence": 0.9,
+    "health_status": "STRONG",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "Unprecedented surge in order intake, jumping from SEK 17B to SEK 100B YoY, indicating a massive shift in the global defense procurement cycle.",
+      "Management tone is exceptionally confident, shifting focus from 'readiness' to 'supporting significantly improved growth opportunities.'",
+      "Organic sales growth of 35% confirms that the company is successfully scaling operations to meet the backlog, rather than just sitting on paper orders."
+    ],
+    "red_flags": [
+      "Execution Risk: A 500%+ increase in quarterly order intake may strain supply chains and lead to delivery delays or cost overruns.",
+      "Geopolitical Sensitivity: The narrative is heavily tied to government defense budgets, which are subject to political volatility despite current tailwinds."
+    ],
+    "reasoning": "The 'True Story' here is a fundamental paradigm shift. Saab has moved from a steady-state defense contractor to a high-growth industrial engine. The massive delta in order intake (SEK 100B) suggests the company has secured 'mega-contracts' that provide revenue visibility for years. While the 'Scalp' horizon is short-term, this level of fundamental outperformance typically drives sustained institutional accumulation and positive price momentum.",
+    "conclusion": "Bullish. The qualitative narrative is one of a 'super-cycle' in defense, with management successfully capturing a disproportionate share of the market.",
+    "_expires_at": 1772108361.832199
   }
 }

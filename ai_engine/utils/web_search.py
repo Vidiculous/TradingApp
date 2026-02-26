@@ -5,17 +5,7 @@ Uses DuckDuckGo to fetch recent news and information about stocks.
 
 import asyncio
 import os
-import ssl
 from datetime import datetime
-
-# Disable SSL verification globally for this process to handle local issuer certificate issues
-try:
-    if not os.environ.get("PYTHONHTTPSVERIFY", ""):
-        ssl._create_default_https_context = ssl._create_unverified_context
-        # Also try to set env var for sub-processes / other libraries
-        os.environ["PYTHONHTTPSVERIFY"] = "0"
-except Exception as e:
-    print(f"Warning: Failed to disable global SSL verification: {e}")
 
 try:
     try:

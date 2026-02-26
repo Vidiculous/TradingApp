@@ -51,6 +51,9 @@ export const DashboardRightPanel = ({
     setNewsLoading(true);
     try {
       const response = await fetch(`/api/news/${tickerData.meta.symbol}`);
+      if (!response.ok) {
+        throw new Error(`News fetch failed (${response.status})`);
+      }
       const data = await response.json();
       setNews(data.news || []);
       setNewsFetched(true);

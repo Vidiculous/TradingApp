@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { API_BASE_URL } from "@/utils/config";
+import { setRedirectFn } from "@/utils/api";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -26,6 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Inject Next.js router into api.ts so 401s use client-side navigation
+  useEffect(() => {
+    setRedirectFn(() => router.push("/login"));
+  }, [router]);
 
   // Check auth status on mount (via refresh token cookie)
   useEffect(() => {
@@ -67,9 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      // Network error or auth not configured — allow access
-      setIsAuthenticated(true);
-      setUsername("local");
+      // Network error — backend is unreachable, deny access rather than silently grant it
+      setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
     }

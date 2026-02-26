@@ -51,6 +51,9 @@ def _save_metadata(ticker: str, metadata: List[dict]):
         logger.error(f"Failed to save metadata for {ticker}: {e}")
 
 
+MAX_PDF_TEXT_LENGTH = 50_000
+
+
 def _extract_text_from_pdf(file_path: str) -> str:
     text = ""
     try:
@@ -60,9 +63,16 @@ def _extract_text_from_pdf(file_path: str) -> str:
                 extracted = page.extract_text()
                 if extracted:
                     text += extracted + "\n"
+                if len(text) >= MAX_PDF_TEXT_LENGTH:
+                    break
     except Exception as e:
         logger.error(f"PDF extraction failed for {file_path}: {e}")
         return ""
+    if len(text) > MAX_PDF_TEXT_LENGTH:
+        logger.warning(
+            f"PDF text truncated from {len(text)} to {MAX_PDF_TEXT_LENGTH} chars: {file_path}"
+        )
+        text = text[:MAX_PDF_TEXT_LENGTH]
     return text
 
 

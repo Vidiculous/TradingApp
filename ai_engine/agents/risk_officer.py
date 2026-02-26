@@ -18,7 +18,14 @@ class RiskOfficer(BaseAgent):
         results: list[dict] = []
         action = str(trade_plan.get("action", "")).upper()
 
+        entry_zone_str = trade_plan.get("entry_zone", "")
         entry = trade_plan.get("entry")
+        if entry is None and entry_zone_str:
+            try:
+                parts = [float(x.strip()) for x in str(entry_zone_str).split("-") if x.strip()]
+                entry = sum(parts) / len(parts) if parts else None
+            except (ValueError, TypeError):
+                pass
         stop_loss = trade_plan.get("stop_loss")
         target = trade_plan.get("target")
 
@@ -28,15 +35,15 @@ class RiskOfficer(BaseAgent):
                 entry_f = float(entry)
                 sl_f = float(stop_loss)
                 if action == "BUY":
-                    # For a BUY, stop_loss must be meaningfully below entry
-                    if entry_f > 0 and sl_f >= entry_f * (1 - 0.001):
+                    # For a BUY, stop_loss must be meaningfully below entry (at least 2% gap)
+                    if entry_f > 0 and sl_f >= entry_f * (1 - 0.02):
                         results.append({
                             "check": "stop_loss_sanity",
                             "passed": False,
                             "detail": (
                                 f"Stop loss is on the wrong side of entry. "
                                 f"For a BUY, stop_loss ({sl_f}) must be below "
-                                f"entry ({entry_f}) by more than 0.1%."
+                                f"entry ({entry_f}) by more than 2%."
                             ),
                         })
                     else:
@@ -48,15 +55,15 @@ class RiskOfficer(BaseAgent):
                             ),
                         })
                 elif action == "SELL":
-                    # For a SELL, stop_loss must be meaningfully above entry
-                    if entry_f > 0 and sl_f <= entry_f * (1 + 0.001):
+                    # For a SELL, stop_loss must be meaningfully above entry (at least 2% gap)
+                    if entry_f > 0 and sl_f <= entry_f * (1 + 0.02):
                         results.append({
                             "check": "stop_loss_sanity",
                             "passed": False,
                             "detail": (
                                 f"Stop loss is on the wrong side of entry. "
                                 f"For a SELL, stop_loss ({sl_f}) must be above "
-                                f"entry ({entry_f}) by more than 0.1%."
+                                f"entry ({entry_f}) by more than 2%."
                             ),
                         })
                     else:

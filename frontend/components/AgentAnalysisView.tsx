@@ -10,6 +10,7 @@ import {
   Settings,
   ShieldAlert,
   Sparkles,
+  TrendingDown,
   TrendingUp,
   User,
   Users,
@@ -450,6 +451,102 @@ export const AgentAnalysisView = ({
               );
             })}
           </div>
+
+          {/* Chronos ML Signal Card */}
+          {(() => {
+            const ml = analysis.squad_details?.quant?.ml_signal as Record<string, unknown> | undefined;
+            if (!ml || (ml.skipped as boolean)) return null;
+
+            const dir = ml.direction as string;
+            const prob = ml.probability as number;
+            const conf = ml.confidence as string;
+            const median = ml.median_forecast as number | undefined;
+            const range = ml.range_q10_q90 as [number, number] | undefined;
+            const steps = ml.forecast_steps as number | undefined;
+            const horizonLabel =
+              steps === 1  ? "~intraday" :
+              steps === 5  ? "~1 week ahead" :
+              steps === 20 ? "~1 month ahead" :
+              steps !== undefined ? `${steps} bars ahead` : "probabilistic forecast";
+
+            const isUp = dir === "UP";
+            const confColor =
+              conf === "HIGH" ? "text-emerald-400" :
+              conf === "MEDIUM" ? "text-yellow-400" :
+              "text-gray-400";
+            const confBg =
+              conf === "HIGH" ? "bg-emerald-500/10 border-emerald-500/20" :
+              conf === "MEDIUM" ? "bg-yellow-500/10 border-yellow-500/20" :
+              "bg-gray-500/10 border-gray-500/20";
+            const dirColor = isUp ? "text-emerald-400" : "text-red-400";
+            const dirBg = isUp ? "bg-emerald-500/10 border-emerald-500/20" : "bg-red-500/10 border-red-500/20";
+
+            return (
+              <div className="glass-panel overflow-hidden rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-violet-500/15 p-2">
+                      <Sparkles size={18} className="text-violet-400" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-violet-300">Chronos-T5 ML Signal</span>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Zero-shot time series model · {horizonLabel}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-violet-400">
+                    Pattern Momentum
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Direction pill */}
+                  <div className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${dirBg}`}>
+                    {isUp
+                      ? <TrendingUp size={16} className={dirColor} />
+                      : <TrendingDown size={16} className={dirColor} />
+                    }
+                    <span className={`text-sm font-bold ${dirColor}`}>{dir}</span>
+                  </div>
+
+                  {/* Probability */}
+                  <div className="flex flex-col rounded-xl border border-white/10 bg-white/5 px-4 py-2">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Probability</span>
+                    <span className="font-mono text-lg font-bold text-white">{(prob * 100).toFixed(1)}%</span>
+                  </div>
+
+                  {/* Confidence */}
+                  <div className={`flex flex-col rounded-xl border px-4 py-2 ${confBg}`}>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Confidence</span>
+                    <span className={`text-sm font-bold ${confColor}`}>{conf}</span>
+                  </div>
+
+                  {/* Median forecast */}
+                  {median !== undefined && (
+                    <div className="flex flex-col rounded-xl border border-white/10 bg-white/5 px-4 py-2">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Median Target</span>
+                      <span className="font-mono text-sm font-bold text-white">${median.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Q10–Q90 range */}
+                  {range && (
+                    <div className="flex flex-col rounded-xl border border-white/10 bg-white/5 px-4 py-2">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Q10–Q90 Range</span>
+                      <span className="font-mono text-sm font-bold text-white">
+                        ${range[0].toFixed(2)} – ${range[1].toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="mt-3 text-[10px] leading-relaxed text-gray-600">
+                  General-purpose time series model — no news or macro awareness. Use as a momentum/pattern signal alongside indicator confluence.
+                </p>
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div className="py-16 text-center text-sm text-gray-600">
