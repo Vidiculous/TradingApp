@@ -420,6 +420,20 @@ class Orchestrator:
             analysis_results["fundamentalist"] = normalize(results[3])
             analysis_results["analyst"] = normalize(results[4])
 
+            # Directly attach full Chronos result to quant ml_signal.
+            # LLMs truncate large arrays (forecast_steps_data, history_snapshot) when
+            # copying tool results — bypassing that by re-fetching from cache (instant).
+            try:
+                chronos_result = await self.tool_manager.execute_tool(
+                    "predict_price_direction",
+                    {"ticker": ticker, "horizon": horizon},
+                    context=data_package,
+                )
+                if chronos_result and not chronos_result.get("skipped"):
+                    analysis_results["quant"]["ml_signal"] = chronos_result
+            except Exception as _ce:
+                print(f"  [!] Chronos direct attach failed: {_ce}")
+
             print("Agents completed analysis. Synthesizing...")
 
             # 3. Executioner Synthesis

@@ -36,10 +36,10 @@ def _get_pipeline():
     return _pipeline
 
 
-def _run_inference(closes: np.ndarray, n_steps: int) -> dict:
+def _run_inference(closes: np.ndarray, n_steps: int, num_samples: int = 150) -> dict:
     pipeline = _get_pipeline()
     context = torch.tensor(closes, dtype=torch.float32).unsqueeze(0)  # [1, T]
-    forecast = pipeline.predict(context, prediction_length=n_steps, num_samples=20)
+    forecast = pipeline.predict(context, prediction_length=n_steps, num_samples=num_samples)
     # forecast shape: [1, num_samples, n_steps]
     samples = forecast[0].numpy()       # [20, n_steps]
     final_prices = samples[:, -1]       # predicted price at step N
@@ -48,6 +48,18 @@ def _run_inference(closes: np.ndarray, n_steps: int) -> dict:
     median_forecast = float(np.median(final_prices))
     q10 = float(np.percentile(final_prices, 10))
     q90 = float(np.percentile(final_prices, 90))
+
+    # Per-step quantiles for charting
+    steps_data = []
+    for i in range(n_steps):
+        step_samples = samples[:, i]
+        steps_data.append({
+            "step": i + 1,
+            "median": round(float(np.median(step_samples)), 4),
+            "q10": round(float(np.percentile(step_samples, 10)), 4),
+            "q90": round(float(np.percentile(step_samples, 90)), 4),
+        })
+
     return {
         "direction": "UP" if prob_up >= 0.5 else "DOWN",
         "probability": round(max(prob_up, 1 - prob_up), 3),
@@ -56,9 +68,11 @@ def _run_inference(closes: np.ndarray, n_steps: int) -> dict:
             "HIGH" if abs(prob_up - 0.5) >= 0.15
             else ("MEDIUM" if abs(prob_up - 0.5) >= 0.07 else "LOW")
         ),
+        "current_price": round(float(current), 4),
         "median_forecast": round(median_forecast, 4),
         "range_q10_q90": [round(q10, 4), round(q90, 4)],
         "forecast_steps": n_steps,
+        "forecast_steps_data": steps_data,
         "note": "Zero-shot Chronos-T5-Small signal. Treat as pattern momentum, not a price target.",
     }
 
@@ -74,10 +88,23 @@ async def predict_price_direction(
         return {"error": "Insufficient price history for ML prediction", "skipped": True}
 
     closes = history["Close"].dropna().values.astype(float)
-    n_steps = HORIZON_STEPS.get(horizon, 5)
+    # Allow caller to override the forecast length and sample count via context
+    n_steps = context.get("n_steps") if context else None
+    if not isinstance(n_steps, int) or n_steps < 1:
+        n_steps = HORIZON_STEPS.get(horizon, 5)
+    num_samples = context.get("num_samples") if context else None
+    if not isinstance(num_samples, int) or num_samples < 1:
+        num_samples = 150
 
     try:
-        result = await asyncio.to_thread(_run_inference, closes, n_steps)
+        result = await asyncio.to_thread(_run_inference, closes, n_steps, num_samples)
+        # Attach last 30 bars of price history for charting (compact; passed through ml_signal)
+        hist_tail = history.tail(30)
+        result["history_snapshot"] = [
+            {"date": idx.strftime("%Y-%m-%d"), "close": round(float(row["Close"]), 4)}
+            for idx, row in hist_tail.iterrows()
+            if not pd.isna(row["Close"])
+        ]
         return result
     except Exception as e:
         logger.warning(f"Chronos inference failed for {ticker}: {e}")

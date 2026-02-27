@@ -7,6 +7,7 @@ import { Suspense, useEffect, useState } from "react";
 import type { AIAnalysis, TickerData } from "@/types/api";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AgentAnalysisView } from "@/components/AgentAnalysisView";
+import { ChronosRunner } from "@/components/ChronosRunner";
 import { AlertsCenter } from "@/components/AlertsCenter";
 import { ChartSection } from "@/components/ChartSection";
 import { DashboardRightPanel } from "@/components/DashboardRightPanel";
@@ -390,6 +391,8 @@ function DashboardContent() {
                   }}
                 />
               </div>
+
+              <ChronosRunner defaultSymbol={tickerData.meta.symbol} />
 
               <FundamentalsGrid
                 fundamentals={tickerData.fundamentals}

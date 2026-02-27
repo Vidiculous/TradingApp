@@ -19,6 +19,7 @@ import { useState } from "react";
 
 import type { AIAnalysis, AgentResult } from "@/types/api";
 import { AgentChatModal } from "./AgentChatModal";
+import { ChronosChart } from "./ChronosChart";
 import { LLMSettingsModal } from "./LLMSettingsModal";
 
 interface AgentAnalysisViewProps {
@@ -541,7 +542,25 @@ export const AgentAnalysisView = ({
                   )}
                 </div>
 
-                <p className="mt-3 text-[10px] leading-relaxed text-gray-600">
+                {/* Forecast chart */}
+                {ml.forecast_steps_data && Array.isArray(ml.forecast_steps_data) && (ml.forecast_steps_data as any[]).length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-white/5 bg-black/20 p-3">
+                    <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+                      30d history + {steps}-step forecast
+                    </p>
+                    <ChronosChart
+                      currentPrice={ml.current_price as number ?? 0}
+                      forecastStepsData={ml.forecast_steps_data as any[]}
+                      horizon={analysis.horizon ?? "Swing"}
+                      isUp={isUp}
+                      history={(ml.history_snapshot as any[]) ?? []}
+                      height={220}
+                      zoomable
+                    />
+                  </div>
+                )}
+
+                <p className="mt-2 text-[10px] leading-relaxed text-gray-600">
                   General-purpose time series model — no news or macro awareness. Use as a momentum/pattern signal alongside indicator confluence.
                 </p>
               </div>

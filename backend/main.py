@@ -661,6 +661,56 @@ async def run_agent_analysis(req: AgentAnalyzeRequest, background_tasks: Backgro
     return {"job_id": job_id, "status": "pending"}
 
 
+@app.get("/api/ml/predict/{symbol}")
+async def ml_predict(
+    symbol: str,
+    horizon: str = "Swing",
+    lookback_days: int = 90,   # calendar days of history fed to Chronos as context
+    forecast_steps: int = 5,   # how many daily candles to project forward
+    num_samples: int = 150,    # number of Monte Carlo sample paths
+):
+    """Run Chronos-T5-Small directly on a ticker and return history + per-step forecast."""
+    import yfinance as yf
+    from ai_engine.tools.ml_tools import predict_price_direction, _CHRONOS_AVAILABLE
+
+    if not _CHRONOS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Chronos/PyTorch not installed on the server.")
+
+    lookback_days = max(20, min(lookback_days, 1825))   # clamp: 20 days – 5 years
+    forecast_steps = max(1, min(forecast_steps, 60))     # clamp: 1 – 60 steps
+    num_samples = max(10, min(num_samples, 500))          # clamp: 10 – 500 samples
+
+    stock = yf.Ticker(symbol)
+    history = await asyncio.to_thread(
+        stock.history, period=f"{lookback_days}d", interval="1d"
+    )
+
+    if history.empty:
+        raise HTTPException(status_code=404, detail=f"No price data found for {symbol}")
+
+    hist_data = [
+        {
+            "date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx),
+            "close": round(float(row["Close"]), 4),
+        }
+        for idx, row in history.iterrows()
+    ]
+
+    forecast = await predict_price_direction(
+        symbol, horizon,
+        context={"history": history, "n_steps": forecast_steps, "num_samples": num_samples},
+    )
+    return {
+        "ticker": symbol.upper(),
+        "horizon": horizon,
+        "lookback_days": lookback_days,
+        "forecast_steps": forecast_steps,
+        "current_price": round(float(history["Close"].iloc[-1]), 4),
+        "history": hist_data,
+        "forecast": forecast,
+    }
+
+
 @app.get("/api/agent/status/{job_id}")
 def get_analysis_status(job_id: str):
     job = job_manager.get_job(job_id)
