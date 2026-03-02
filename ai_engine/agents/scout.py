@@ -20,6 +20,8 @@ class Scout(BaseAgent):
             news_data = data.get("news", {})
             datetime_context = data.get("datetime_context", "")
             web_news = data.get("web_news", "No recent news from web search.")
+            breaking_news = data.get("breaking_news", "")
+            sector_news = data.get("sector_news", "")
 
             # Handle backward compatibility if news is just a list
             if isinstance(news_data, list):
@@ -67,6 +69,16 @@ class Scout(BaseAgent):
             TIMEFRAME SPECIFICITY: Based on the urgency and impact of the news/catalysts and current session timing, estimate a SPECIFIC expected duration for this sentiment to play out within the {horizon} bounds.
 
             SESSION AWARENESS: If the Market State is NOT 'REGULAR', explicitly mention this and how it impacts news digestion (e.g. "News is fresh but market is CLOSED; expect gap on open").
+
+            {f"""
+            RECENT NEWS (READ FIRST — HIGHEST PRIORITY):
+            {breaking_news}
+            """ if breaking_news else ""}
+
+            {f"""
+            GLOBAL NEWS HEADLINES (assess which of these are relevant to {ticker} — geopolitical events, conflicts, policy changes, and macro shifts can move stocks even without mentioning the company):
+            {sector_news}
+            """ if sector_news else ""}
 
             <web_search_results>
             {web_news}

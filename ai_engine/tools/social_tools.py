@@ -8,7 +8,12 @@ async def get_social_sentiment(ticker: str) -> Dict[str, Any]:
     and identifying potential 'hype' or meme-stock status.
     """
     try:
-        query = f"${ticker} stock sentiment reddit wallstreetbets twitter X talk hype"
+        # Strip exchange suffix (.ST, .DE) and share-class suffix (-B, -A) so social queries
+        # match how retail investors write tickers on Reddit/X (e.g. $SAAB not $SAAB-B.ST)
+        base = ticker.split(".")[0]
+        plain = base.split("-")[0] if "-" in base else base
+        social_ticker = plain
+        query = f"${social_ticker} {ticker} stock sentiment reddit wallstreetbets twitter X talk hype"
         search_results = await search_general(query, max_results=5)
         
         findings = []

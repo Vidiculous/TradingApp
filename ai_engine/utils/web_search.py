@@ -20,7 +20,8 @@ except ImportError:
 
 
 async def search_stock_news(
-    symbol: str, company_name: str | None = None, max_results: int = 5
+    symbol: str, company_name: str | None = None, max_results: int = 5,
+    timelimit: str | None = None,
 ) -> list[dict]:
     """
     Search for recent news about a stock.
@@ -29,6 +30,7 @@ async def search_stock_news(
         symbol: Stock ticker symbol (e.g., "AAPL")
         company_name: Optional company name for better results
         max_results: Maximum number of results to return
+        timelimit: Optional DuckDuckGo time filter — "d" (today), "w" (week), "m" (month), None (no limit)
 
     Returns:
         List of news results with title, body, url, and date
@@ -46,14 +48,13 @@ async def search_stock_news(
         def do_search():
             results = []
 
-            # --- Attempt 1: news endpoint, no time restriction ---
-            # Using timelimit="w" (1 week) was too narrow for non-US stocks that don't
-            # have daily English coverage. We search without a time limit first so that
-            # recent-but-not-this-week articles are still found.
-            print(f"    [WebSearch] Attempt 1: Searching news for '{query}'")
+            # --- Attempt 1: news endpoint ---
+            # timelimit=None preserves broad coverage for non-US stocks.
+            # Callers can pass timelimit="d" for a today-only breaking news pass.
+            print(f"    [WebSearch] Attempt 1: Searching news for '{query}'" + (f" (timelimit={timelimit})" if timelimit else ""))
             try:
-                with DDGS(verify=False) as ddgs:
-                    results = list(ddgs.news(query, max_results=max_results))
+                with DDGS() as ddgs:
+                    results = list(ddgs.news(query, max_results=max_results, timelimit=timelimit))
                     if results:
                         print(f"    [WebSearch] Attempt 1 success: Found {len(results)} news results.")
                         return results
@@ -70,7 +71,7 @@ async def search_stock_news(
             if alt_query != query:
                 print(f"    [WebSearch] Attempt 2: Searching news for '{alt_query}'")
                 try:
-                    with DDGS(verify=False) as ddgs:
+                    with DDGS() as ddgs:
                         results = list(ddgs.news(alt_query, max_results=max_results))
                         if results:
                             print(f"    [WebSearch] Attempt 2 success: Found {len(results)} news results.")
@@ -84,7 +85,7 @@ async def search_stock_news(
             fallback_query = company_name if company_name else f"{plain_name} {base_symbol} news"
             try:
                 print(f"    [WebSearch] Fallback: General text search for '{fallback_query}'")
-                with DDGS(verify=False) as ddgs:
+                with DDGS() as ddgs:
                     results = list(ddgs.text(fallback_query, max_results=max_results))
                     if results:
                         print(f"    [WebSearch] Fallback success: Found {len(results)} text results.")
@@ -139,7 +140,7 @@ async def search_general(query: str, max_results: int = 5) -> list[dict]:
         def do_search():
             print(f"    [WebSearch] General search: {query}")
             try:
-                with DDGS(verify=False) as ddgs:
+                with DDGS() as ddgs:
                     results = list(ddgs.text(query, max_results=max_results))
                     print(f"    [WebSearch] Found {len(results)} results.")
                     return results
@@ -163,6 +164,61 @@ async def search_general(query: str, max_results: int = 5) -> list[dict]:
                 }
             )
 
+        return formatted
+    except Exception as e:
+        print(f"Web search error: {e}")
+        return []
+
+
+async def search_global_headlines(max_results: int = 7) -> list[dict]:
+    """
+    Search for today's top global news headlines using the DuckDuckGo *news* endpoint
+    (not text/web search). The news endpoint surfaces breaking stories from the last 24 h
+    far more reliably than ddgs.text() which ranks by relevance, not recency.
+
+    Used by the orchestrator to give Scout geopolitical context that doesn't mention
+    the specific ticker (e.g. "Iran conflict → European defense stocks surge").
+    """
+    if not DDGS_AVAILABLE:
+        return []
+
+    try:
+        queries = [
+            "breaking news today geopolitical conflict war",
+            "world markets economy breaking today",
+        ]
+
+        def do_search():
+            for q in queries:
+                print(f"    [WebSearch] Global headlines (news, timelimit=d): '{q}'")
+                try:
+                    with DDGS() as ddgs:
+                        results = list(ddgs.news(q, max_results=max_results, timelimit="d"))
+                        if results:
+                            print(f"    [WebSearch] Global headlines: {len(results)} results.")
+                            return results
+                        print(f"    [WebSearch] Global headlines: 0 results for '{q}'.")
+                except Exception as e:
+                    print(f"    [WebSearch] Global headlines error: {e}")
+            return []
+
+        results = await asyncio.to_thread(do_search)
+
+        formatted = []
+        for r in results:
+            formatted.append(
+                {
+                    "title": r.get("title", ""),
+                    "body": (
+                        r.get("body", "")[:300] + "..."
+                        if len(r.get("body", "")) > 300
+                        else r.get("body", "")
+                    ),
+                    "source": r.get("source", ""),
+                    "date": r.get("date", ""),
+                    "url": r.get("url", ""),
+                }
+            )
         return formatted
     except Exception as e:
         print(f"Web search error: {e}")

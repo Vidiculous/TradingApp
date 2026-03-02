@@ -8,7 +8,11 @@ async def get_macro_events(date_range: str = "this week") -> Dict[str, Any]:
     that could impact market volatility.
     """
     try:
-        query = f"major economic calendar events {date_range} FOMC CPI Jobs report macro catalysts"
+        query = (
+            f"major market moving events {date_range} "
+            "FOMC CPI Jobs report macro catalysts "
+            "geopolitical conflict war sanctions defense budget NATO"
+        )
         search_results = await search_general(query, max_results=5)
         
         events = []

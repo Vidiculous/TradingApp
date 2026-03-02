@@ -56,40 +56,40 @@
     "_expires_at": 1772129284.535822
   },
   "SAAB-B.ST_news_fallback_Scalp": {
+    "signal": "NEUTRAL",
+    "confidence": 0.1,
+    "health_status": "STABLE",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "No forensic text available for deep analysis due to tool retrieval failure for ticker SAAB-B.ST.",
+      "Institutional data shows minimal activity with only one reported holder (Pacer Advisors, Inc.), which is insufficient for a sentiment trend analysis.",
+      "Qualitatively, Saab AB operates in the high-barrier-to-entry defense and aerospace sector, suggesting a structural moat, but specific management tone or recent risk shifts cannot be verified."
+    ],
+    "red_flags": [
+      "Lack of transparent, accessible financial documentation in the current data stream prevents forensic risk assessment.",
+      "Insufficient insider/institutional data to gauge 'smart money' sentiment."
+    ],
+    "reasoning": "The analysis is constrained by a lack of primary source text (10-Ks or transcripts) for the Swedish-listed ticker. While the business model (Defense) inherently possesses a wide moat due to government contracts and complex IP, the 'True Story' regarding management's current outlook or hidden legal liabilities is obscured. For a 'Scalp' horizon, the lack of qualitative catalysts or red flags makes this a neutral forensic play.",
+    "conclusion": "No forensic text available for deep analysis; structural moat assumed, but qualitative health is unverified.",
+    "_expires_at": 1772468770.182547
+  },
+  "SAAB-B.ST_news_fallback_Swing": {
     "signal": "BULLISH",
     "confidence": 0.75,
     "health_status": "STRONG",
     "moat_rating": "WIDE",
     "key_qualitative_findings": [
-      "The company is currently benefiting from a structural shift in European defense spending, with a record-high order backlog that provides multi-year revenue visibility.",
-      "Management tone in recent communications emphasizes 'capacity expansion' and 'speed of delivery,' shifting from a historical focus on R&D to industrial execution.",
-      "Saab's integration into NATO supply chains following Sweden's accession creates a 'sticky' regulatory and political moat that is difficult for non-EU/US competitors to breach."
+      "The company is benefiting from a structural 'defense splurge' in Europe, shifting from a regional player to a critical continental supplier.",
+      "Management's decision to raise mid-term growth targets to 15% (2023-2027) indicates high internal confidence in the sustainability of current demand.",
+      "A 20% growth in order backlog (reaching 153 billion SEK) provides significant multi-year revenue visibility that transcends short-term market volatility."
     ],
     "red_flags": [
-      "Supply chain bottlenecks: Management has hinted at challenges in scaling production fast enough to meet the surge in demand for NLAW and Carl-Gustaf systems.",
-      "Labor market tightness: High demand for specialized defense engineers in Sweden may lead to wage inflation and margin pressure."
+      "The stock is trading at all-time highs, suggesting that much of the 'good news' regarding European rearmament may already be priced in.",
+      "Execution Risk: With a massive backlog, the primary forensic risk shifts from 'demand' to 'capacity'\u2014any supply chain bottlenecks or labor shortages could lead to margin compression.",
+      "Geopolitical Dependency: The narrative is heavily tied to the continuation of the current geopolitical climate; a de-escalation in regional tensions could lead to rapid contract de-prioritization."
     ],
-    "reasoning": "From a forensic perspective, the narrative has shifted from 'searching for growth' to 'managing hyper-growth.' While the 'Scalp' horizon is sensitive to immediate news, the qualitative health is bolstered by the geopolitical tailwinds. The primary risk is not a lack of business, but the potential for execution missteps as they scale production facilities. The absence of recent insider selling despite the stock's performance suggests internal confidence in the current trajectory.",
-    "conclusion": "Bullish on the structural demand and competitive positioning; the 'True Story' is one of a regional champion transitioning into a global defense powerhouse.",
-    "_expires_at": 1772449635.327826
-  },
-  "SAAB-B.ST_news_fallback_Swing": {
-    "signal": "BULLISH",
-    "confidence": 0.85,
-    "health_status": "STRONG",
-    "moat_rating": "WIDE",
-    "key_qualitative_findings": [
-      "Saab is currently benefiting from a 'generational' shift in European defense spending following Sweden's NATO accession, which fundamentally changes its addressable market and procurement priority.",
-      "The company's narrative has shifted from 'searching for orders' to 'managing capacity,' indicating a transition from a sales-driven risk profile to an execution-driven risk profile.",
-      "The product mix (Gripen E, GlobalEye, and submarines) provides a diversified technological moat that is difficult for new entrants to replicate due to high regulatory and R&D barriers."
-    ],
-    "red_flags": [
-      "Supply chain constraints and labor shortages for specialized engineers are the primary bottlenecks mentioned in recent industry contexts, which could lead to margin compression if not managed.",
-      "Heavy reliance on large, multi-year government contracts makes the company sensitive to shifts in national defense budgets and political cycles.",
-      "Institutional data shows limited US-based institutional penetration (e.g., Pacer Advisors), suggesting the stock remains largely under the radar of global retail/institutional 'whale' flows compared to US peers like Lockheed or Northrop."
-    ],
-    "reasoning": "The 'True Story' for Saab is no longer about the viability of its technology, but its ability to scale production to meet the massive backlog generated by the current geopolitical climate. While the financials might lag due to the long-cycle nature of defense contracts, the qualitative narrative is one of structural growth. The primary risk is 'execution risk'\u2014delivering on the T-7 Red Hawk and other major programs without cost overruns.",
-    "conclusion": "Bullish on the structural tailwinds and wide moat; the narrative suggests a multi-year growth cycle as Europe re-arms.",
-    "_expires_at": 1772461941.969347
+    "reasoning": "The 'True Story' for Saab isn't just about a single earnings beat; it's about the fundamental re-alignment of European defense priorities. The qualitative signal is exceptionally strong because the growth is backed by a massive, legally binding order backlog rather than speculative projections. While the 'all-time high' status of the stock warrants caution for a swing trader, the structural moat (high barriers to entry in fighter jet and submarine manufacturing) remains impenetrable for new competitors.",
+    "conclusion": "Bullish on the structural tailwinds and massive backlog, though the 'all-time high' price level suggests the easy money has been made; forensic health is top-tier.",
+    "_expires_at": 1772478290.6308677
   }
 }

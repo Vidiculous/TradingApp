@@ -3,9 +3,9 @@ uvicorn==0.27.1
 httpx==0.27.0
 python-dotenv==1.0.1
 pydantic==2.6.4
-yfinance==0.2.37
+yfinance
 pandas==2.2.1
-google-generativeai==0.4.1
+google-genai
 beautifulsoup4==4.12.3
 lxml==5.1.0
 duckduckgo-search==5.1.0
@@ -15,7 +15,7 @@ pytest-asyncio==0.23.5
 PyPDF2>=3.0.0
 python-multipart>=0.0.6
 sqlmodel==0.0.14
-psycopg2-binary==2.9.9
+psycopg[binary]
 alembic==1.13.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -23,3 +23,5 @@ openai==1.12.0
 anthropic==0.18.1
 torch>=2.0.0
 chronos-forecasting>=1.3.0
+feedparser
+matplotlib

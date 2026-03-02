@@ -53,6 +53,7 @@ from ai_engine.utils.web_search import (
     format_news_for_context,
     get_current_datetime_context,
     search_general,
+    search_global_headlines,
     search_stock_news,
 )
 
@@ -231,10 +232,19 @@ class Orchestrator:
             general_news = market_news + world_news
             news_package = {"ticker_news": ticker_news, "general_news": general_news}
 
-            # Generate Chart Image in thread
-            print("  - Generating chart...")
-            chart_bytes = await asyncio.to_thread(
-                generate_candlestick_chart, history, title=f"{ticker} - {horizon}"
+            # Three parallel fetches alongside chart generation — zero extra latency:
+            # 1. Company-specific news (timelimit scoped to horizon)
+            # 2. Global top headlines today — Scout decides what's relevant to this stock
+            # Time window is horizon-scoped: Scalp=today, Swing=week, Invest=month.
+            company_name = info.get("longName") or info.get("shortName") or None
+            news_timelimit = {"Scalp": "d", "Swing": "w", "Invest": "m"}.get(horizon, "w")
+            news_timelimit_label = {"d": "last 24 hours", "w": "past week", "m": "past month"}[news_timelimit]
+
+            print(f"  - Generating chart + fetching news (timelimit={news_timelimit}) + global headlines (parallel)...")
+            chart_bytes, breaking_news_raw, global_news_raw = await asyncio.gather(
+                asyncio.to_thread(generate_candlestick_chart, history, title=f"{ticker} - {horizon}"),
+                search_stock_news(ticker, company_name=company_name, max_results=5, timelimit=news_timelimit),
+                search_global_headlines(max_results=7),
             )
 
             # Format web search results for context.
@@ -246,12 +256,40 @@ class Orchestrator:
             web_news_context = format_news_for_context(web_news_normalised)
             datetime_context = get_current_datetime_context()
 
+            # Format horizon-scoped recent news as a distinct high-priority block for Scout.
+            breaking_news_items = [n for n in breaking_news_raw if n.get("title")]
+            if breaking_news_items:
+                breaking_news_context = f"RECENT NEWS ({news_timelimit_label} — prioritise these):\n" + "\n".join(
+                    f"- [{n.get('source', '')}] {n['title']}: {n.get('body', '')[:200]}"
+                    for n in breaking_news_items
+                )
+                print(f"  - Recent news ({news_timelimit_label}): {len(breaking_news_items)} article(s) found.")
+            else:
+                breaking_news_context = ""
+                print(f"  - Recent news: no articles found (timelimit='{news_timelimit}').")
+
+            # Format global headlines — Scout decides which are relevant to this stock.
+            global_news_items = [n for n in global_news_raw if n.get("title")]
+            if global_news_items:
+                sector_news_context = (
+                    "GLOBAL NEWS HEADLINES (today — assess relevance to this stock yourself):\n"
+                    + "\n".join(
+                        f"- [{n.get('source', '')}] {n['title']}: {n.get('body', '')[:200]}"
+                        for n in global_news_items
+                    )
+                )
+                print(f"  - Global headlines: {len(global_news_items)} article(s) found.")
+            else:
+                sector_news_context = ""
+
             data_package = {
                 "ticker": ticker,
                 "current_price": current_price,
                 "history": history,
                 "chart_image": chart_bytes,
-                "web_news": web_news_context,  # Fresh news from web search
+                "web_news": web_news_context,  # Fresh news from web search (no time limit)
+                "breaking_news": breaking_news_context,  # Horizon-scoped company news for Scout
+                "sector_news": sector_news_context,  # Sector/industry-wide geopolitical context
                 "datetime_context": datetime_context,  # Current date/time for grounding
                 "market_context": {
                     "exchange": info.get("exchange", "Unknown"),

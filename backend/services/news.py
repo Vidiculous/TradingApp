@@ -250,7 +250,7 @@ async def get_multi_source_ticker_news(symbol: str, max_per_source: int = 3) -> 
         all_news.extend(
             [
                 {
-                    "source": item.get("source", "Web Search"),
+                    "source": "Web Search",
                     "headline": item["title"],
                     "url": item["url"],
                     "publishedAt": item.get("date", ""),

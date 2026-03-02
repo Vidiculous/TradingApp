@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MarketDASH PRO — a full-stack trading platform with AI-powered multi-agent analysis, paper trading, and real-time market data. Three main subsystems: Next.js frontend, FastAPI backend, and a multi-LLM agent engine (Gemini, OpenAI, or Anthropic).
 
+> See also: `ENVIRONMENT.md` at project root — agent specialization table, UI z-index hierarchy, and design conventions.
+
 ## Common Commands
 
 ### Running the App
@@ -83,6 +85,8 @@ Database (backend/database.db — SQLite)
   - `auth.py` — Single-user JWT auth (access 15min + refresh 7d, httpOnly cookies). Auth disabled if `APP_PASSWORD_HASH` not set.
   - `llm_provider.py` — Multi-LLM adapter (Gemini / OpenAI / Anthropic), runtime API key injection
   - `sector_data.py` — Sector correlation and peer comparison
+  - `screener.py` — Technical signal screener for market index components (`/api/market/screener?market=SE`)
+  - `ai_service.py` — Simple direct Gemini analysis (used by quick-analysis endpoints, bypasses agent orchestrator)
   - `jobs.py` — In-memory background job tracker (lost on restart)
   - `db_service.py` — SQLite `create_all()` on startup
 
@@ -93,7 +97,9 @@ Multi-agent framework: 5 specialist agents analyze in parallel → Executioner s
 - **`orchestrator.py`** — Coordinates the pipeline: gathers data in parallel, spawns agents (semaphore=2), collects normalized results, runs Executioner then Risk Officer, optionally auto-executes.
 - **`agents/base.py`** — `BaseAgent` wrapping `LLMProvider`. Features: retry with exponential backoff (3 attempts), tool execution via `tool_manager`, inter-agent `ask_agent()`, JSON fence stripping, data sanitization.
 - **`tool_manager.py`** — Tool registry with TTL-based caching (60s–24h by type). Agents call `self.tool_manager.execute_tool(name, args)`.
-- **`tools/`** — 8 data tools: `technical_tools` (RSI/MACD/ATR), `market_tools` (PE/PB/stats), `document_tools` (10-K/10-Q text), `peer_tools`, `insider_tools`, `earnings_tools`, `macro_tools`, `social_tools`.
+- **`tools/`** — 9 data tools: `technical_tools` (RSI/MACD/ATR), `market_tools` (PE/PB/stats), `document_tools` (10-K/10-Q text), `peer_tools`, `insider_tools`, `earnings_tools`, `macro_tools`, `social_tools`, `ml_tools` (Chronos-T5 forecasting).
+- **`tools/ml_tools.py`** — Chronos-T5-Small probabilistic price forecasting (`/api/ml/predict/{symbol}`). Optional: requires `pip install torch chronos-forecasting`. Downloads ~250MB model on first call (cached after). Gracefully skipped if not installed.
+- **`analyze.py`** — Standalone Gemini analysis script (dev/testing utility, not part of the agent pipeline).
 - **Agent squad** (each in `agents/` with a matching prompt in `prompts/`):
   - `chartist.py` — Visual/pattern analysis, multimodal chart image input
   - `quant.py` — RSI, MACD, volume stats; uses `get_indicators` tool
@@ -130,7 +136,7 @@ Copy `backend/.env.template` to `backend/.env`. Required:
 - `GEMINI_API_KEY` (from https://aistudio.google.com/) — or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` if using other providers.
 
 Optional:
-- `GEMINI_MODEL` — default `gemini-1.5-pro`
+- `GEMINI_MODEL` — default `gemini-3-flash-preview`
 - `APP_USERNAME` / `APP_PASSWORD_HASH` — enable JWT auth (generate hash with `python scripts/create_password.py`)
 - `CORS_ORIGINS` — comma-separated allowed origins (default: `http://localhost:3001,http://127.0.0.1:3001`)
 - `DEMO_MODE`, `SSL_VERIFY`
@@ -148,3 +154,5 @@ Optional:
 - **Job manager is in-memory**: Analysis jobs are lost on backend restart. Frontend will get a 404 on status poll if the server restarts during analysis.
 - **`jose` module**: Auth requires `python-jose[cryptography]`. If missing, install via `pip install "python-jose[cryptography]"`.
 - **Agent LLM calls**: All agents use `LLMProvider` via `BaseAgent`, not direct `google.generativeai` calls. To switch LLM, update `LLM_PROVIDER` in `.env` or use the frontend `LLMSettingsModal`.
+- **European ticker suffixes**: yfinance requires market suffixes — `.ST` (Stockholm/SIX), `.DE` (Frankfurt), `.PA` (Paris). E.g. `VOLV-B.ST`. Warrants/ISIN formats (e.g. `DE000...`) are inconsistent in yfinance.
+- **Chronos optional dependency**: `ai_engine/tools/ml_tools.py` requires `pip install torch chronos-forecasting` (~250MB). If not installed, `/api/ml/predict/{symbol}` is skipped gracefully.
