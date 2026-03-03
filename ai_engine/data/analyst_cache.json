@@ -55,41 +55,41 @@
     "conclusion": "Neutral due to a total lack of verifiable forensic narrative; the 'True Story' is currently obscured by data retrieval failures.",
     "_expires_at": 1772129284.535822
   },
-  "SAAB-B.ST_news_fallback_Scalp": {
-    "signal": "NEUTRAL",
-    "confidence": 0.1,
-    "health_status": "STABLE",
-    "moat_rating": "WIDE",
-    "key_qualitative_findings": [
-      "No forensic text available for deep analysis due to tool retrieval failure for ticker SAAB-B.ST.",
-      "Institutional data shows minimal activity with only one reported holder (Pacer Advisors, Inc.), which is insufficient for a sentiment trend analysis.",
-      "Qualitatively, Saab AB operates in the high-barrier-to-entry defense and aerospace sector, suggesting a structural moat, but specific management tone or recent risk shifts cannot be verified."
-    ],
-    "red_flags": [
-      "Lack of transparent, accessible financial documentation in the current data stream prevents forensic risk assessment.",
-      "Insufficient insider/institutional data to gauge 'smart money' sentiment."
-    ],
-    "reasoning": "The analysis is constrained by a lack of primary source text (10-Ks or transcripts) for the Swedish-listed ticker. While the business model (Defense) inherently possesses a wide moat due to government contracts and complex IP, the 'True Story' regarding management's current outlook or hidden legal liabilities is obscured. For a 'Scalp' horizon, the lack of qualitative catalysts or red flags makes this a neutral forensic play.",
-    "conclusion": "No forensic text available for deep analysis; structural moat assumed, but qualitative health is unverified.",
-    "_expires_at": 1772468770.182547
-  },
   "SAAB-B.ST_news_fallback_Swing": {
     "signal": "BULLISH",
-    "confidence": 0.75,
+    "confidence": 0.8,
     "health_status": "STRONG",
     "moat_rating": "WIDE",
     "key_qualitative_findings": [
-      "The company is benefiting from a structural 'defense splurge' in Europe, shifting from a regional player to a critical continental supplier.",
-      "Management's decision to raise mid-term growth targets to 15% (2023-2027) indicates high internal confidence in the sustainability of current demand.",
-      "A 20% growth in order backlog (reaching 153 billion SEK) provides significant multi-year revenue visibility that transcends short-term market volatility."
+      "Massive expansion in order backlog (20% growth to 153 billion crowns) provides multi-year revenue visibility.",
+      "Structural shift in European defense spending acts as a long-term tailwind, moving beyond a one-time spike into sustained demand.",
+      "Management's decision to raise mid-term growth targets to 15% through 2027 signals high internal confidence in execution and capacity scaling."
     ],
     "red_flags": [
-      "The stock is trading at all-time highs, suggesting that much of the 'good news' regarding European rearmament may already be priced in.",
-      "Execution Risk: With a massive backlog, the primary forensic risk shifts from 'demand' to 'capacity'\u2014any supply chain bottlenecks or labor shortages could lead to margin compression.",
-      "Geopolitical Dependency: The narrative is heavily tied to the continuation of the current geopolitical climate; a de-escalation in regional tensions could lead to rapid contract de-prioritization."
+      "Stock is trading near all-time highs, suggesting much of the 'defense splurge' narrative may already be priced in.",
+      "Potential for capacity constraints if the company cannot scale production fast enough to meet the 153 billion crown backlog.",
+      "Lack of recent insider buying despite strong performance may indicate management perceives the current valuation as full."
     ],
-    "reasoning": "The 'True Story' for Saab isn't just about a single earnings beat; it's about the fundamental re-alignment of European defense priorities. The qualitative signal is exceptionally strong because the growth is backed by a massive, legally binding order backlog rather than speculative projections. While the 'all-time high' status of the stock warrants caution for a swing trader, the structural moat (high barriers to entry in fighter jet and submarine manufacturing) remains impenetrable for new competitors.",
-    "conclusion": "Bullish on the structural tailwinds and massive backlog, though the 'all-time high' price level suggests the easy money has been made; forensic health is top-tier.",
-    "_expires_at": 1772478290.6308677
+    "reasoning": "The narrative is dominated by a 'super-cycle' in European defense. Saab's qualitative health is anchored by a massive, growing backlog and a wide moat protected by high entry barriers in aerospace and defense electronics. While the 'Fundamentalist' might worry about the P/E at all-time highs, the forensic story shows a company successfully transitioning from a niche player to a primary beneficiary of a continental security realignment.",
+    "conclusion": "Bullish on the structural demand and massive backlog, though the 'swing' horizon requires caution as the stock tests all-time highs.",
+    "_expires_at": 1772538949.3814552
+  },
+  "SAAB-B.ST_news_fallback_Scalp": {
+    "signal": "BULLISH",
+    "confidence": 0.85,
+    "health_status": "STRONG",
+    "moat_rating": "WIDE",
+    "key_qualitative_findings": [
+      "Management is signaling high confidence by raising mid-term growth targets to 15% through 2027, suggesting a shift from reactive growth to sustained structural expansion.",
+      "The order backlog has reached a massive 153 billion SEK (20% growth), providing multi-year revenue visibility that is rare in most sectors.",
+      "The company is a primary beneficiary of a generational shift in European defense policy, effectively creating a 'captive' customer base among NATO and EU members."
+    ],
+    "red_flags": [
+      "Potential 'peak sentiment' risk: Shares hit all-time highs following the Q4 report, which may lead to short-term volatility if execution doesn't perfectly match the raised guidance.",
+      "Geopolitical dependency: The narrative is heavily tied to the continuation of high European defense spending; any de-escalation in regional tensions could lead to a rapid narrative shift."
+    ],
+    "reasoning": "The qualitative narrative for Saab is exceptionally strong. Unlike many companies facing macro headwinds, Saab is operating in a 'super-cycle' for defense. The forensic signal here is the management's decision to raise long-term targets\u2014this isn't just a temporary earnings beat, but a structural re-rating of the business model's scale. The wide moat is confirmed by the specialized nature of fighter jet and submarine production, which has near-insurmountable barriers to entry.",
+    "conclusion": "Bullish on the structural moat and management's aggressive growth posture, though the 'all-time high' status suggests caution for a 'Scalp' horizon.",
+    "_expires_at": 1772539075.6835346
   }
 }

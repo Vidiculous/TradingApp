@@ -64,6 +64,9 @@ venv/
 env/
 ENV/
 
+# uv
+uv.lock
+
 # Backend Data
 backend/data/*.json
 

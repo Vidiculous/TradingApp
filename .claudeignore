@@ -1,0 +1,38 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+backend/.venv/
+
+# Frontend build & deps
+frontend/.next/
+frontend/node_modules/
+
+# Database & data files
+backend/database.db
+backend/database.db.bak
+backend/data/
+data/
+
+# AI model cache (Chronos ~250MB)
+ai_engine/tools/.cache/
+**/.cache/
+
+# Logs
+**/*.log
+error.log
+
+# Environment / secrets
+backend/.env
+
+# Lock files
+uv.lock
+package-lock.json
+
+# Test scratch files
+test_*.py
